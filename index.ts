@@ -22,7 +22,7 @@
 
 import { readdirSync } from "node:fs";
 import { promises as fs } from "node:fs";
-import { resolve, dirname } from 'path';
+import { resolve, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { mkdir } from 'node:fs/promises';
 //import editorHtml from './editor.html'; // No longer needed
@@ -122,10 +122,12 @@ async function handleGetRequest(request: Request, config: AppConfig): Promise<Re
             // Fire plugin hook: onNoteLoad
             rawMarkdown = fireOnNoteLoadPlugins(safePath, rawMarkdown);
 
-            // Render the editor page (live preview + text area) instead of a static read-only page
-            //return new Response(editorHtml, { // No longer needed
-            //    headers: { "Content-Type": "text/html" }
-            //});
+            // If the URL has a "copy" query parameter, return the raw text
+            if (url.searchParams.has("copy")) {
+                return new Response(rawMarkdown, {
+                    headers: { "Content-Type": "text/plain" }
+                });
+            }
 
             const editorPageHtml = await renderEditorPage(noteName, rawMarkdown);
             return new Response(editorPageHtml, {
@@ -154,7 +156,6 @@ async function handleGetRequest(request: Request, config: AppConfig): Promise<Re
 async function handlePostRequest(request: Request, config: AppConfig): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
-
 
     // POST /notes/save
     // Expects a JSON body: { filename: string, content: string }
@@ -192,6 +193,19 @@ async function handlePostRequest(request: Request, config: AppConfig): Promise<R
 -------------------------------------------------------------------------------- */
 
 function renderHomePageHTML(): string {
+    // List all markdown files from the vault
+    const fileList = listAllMarkdownFiles(notesDir);
+    const filesHtml = fileList.map(filePath => {
+        const relPath = relative(notesDir, filePath);
+        return `<li>
+            <div class="note-item">
+                <a href="/notes/${encodeURIComponent(relPath)}">${relPath}</a>
+                <button class="copy-btn" data-path="${encodeURIComponent(relPath)}">Copy</button>
+                <span class="copy-notification">Copied!</span>
+            </div>
+        </li>`;
+    }).join("\n");
+
     return /* html */ `
     <!DOCTYPE html>
     <html lang="en">
@@ -203,21 +217,66 @@ function renderHomePageHTML(): string {
           font-family: sans-serif;
           margin: 2rem;
         }
-        h1 {
+        h1, h2 {
           color: #333;
         }
-        .placeholder {
-          padding: 1rem;
-          background: #efefef;
-          border: 1px dashed #ccc;
-          margin: 1rem 0;
+        ul {
+          list-style: none;
+          padding: 0;
+        }
+        li {
+          margin-bottom: 0.5rem;
+        }
+        a {
+          text-decoration: none;
+          color: blue;
+        }
+        .note-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          position: relative;
+        }
+        .copy-btn {
+          opacity: 0;
+          padding: 0.2rem 0.5rem;
+          font-size: 0.9rem;
+          transition: opacity 0.2s ease;
+          cursor: pointer;
+          background: #f0f0f0;
+          border: 1px solid #ddd;
+          border-radius: 3px;
+        }
+        .note-item:hover .copy-btn {
+          opacity: 1;
+        }
+        .copy-notification {
+          position: absolute;
+          left: 100%;
+          margin-left: 8px;
+          background: #4CAF50;
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 0.9rem;
+          opacity: 0;
+          transition: all 0.2s ease;
+          transform: translateY(-50%);
+          pointer-events: none;
+          white-space: nowrap;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .copy-notification.show {
+          opacity: 1;
         }
       </style>
     </head>
     <body>
       <h1>Welcome to the Bun Markdown Notes App</h1>
-      <p>This is a placeholder home page.</p>
-      <p>Try visiting <code>/notes/foo.md</code> if you have a file named <code>foo.md</code> in <code>${notesDir}</code>.</p>
+      <h2>Files in Vault</h2>
+      <ul>
+        ${filesHtml}
+      </ul>
   
       <div style="margin-top: 1rem;">
         <strong>Search Demo</strong><br/>
@@ -229,7 +288,7 @@ function renderHomePageHTML(): string {
       </div>
   
       <div class="placeholder">
-        <p>In future tickets, we'll have:</p>
+        <p>Future Features:</p>
         <ul>
           <li>Live Markdown editing</li>
           <li>File-based storage in <code>./notes</code></li>
@@ -238,6 +297,46 @@ function renderHomePageHTML(): string {
           <li>And more...</li>
         </ul>
       </div>
+  
+        <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const buttons = document.querySelectorAll(".copy-btn");
+            buttons.forEach(button => {
+            button.addEventListener("click", async function() {
+                const path = button.getAttribute("data-path");
+                try {
+                const response = await fetch("/notes/" + path + "?copy=1");
+                if (!response.ok) {
+                    console.error("Failed to copy: " + response.statusText);
+                    return;
+                }
+                const content = await response.text();
+                await navigator.clipboard.writeText(content);
+
+                // Temporarily change the button text to "Copied!"
+                const originalText = button.textContent;
+                button.textContent = "Copied!";
+
+                // Clear any existing timeout and revert the text after 1500ms
+                if (button.timeoutId) {
+                    clearTimeout(button.timeoutId);
+                }
+                button.timeoutId = setTimeout(() => {
+                    button.textContent = originalText;
+                }, 1500);
+
+                // Optional visual feedback on the button
+                button.style.backgroundColor = '#e0e0e0';
+                setTimeout(() => {
+                    button.style.backgroundColor = '';
+                }, 200);
+                } catch (err) {
+                console.error("Error copying document: " + err);
+                }
+            });
+            });
+        });
+        </script>
     </body>
     </html>
     `;

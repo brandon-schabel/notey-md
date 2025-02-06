@@ -72,6 +72,7 @@
         <button id="boldBtn">Bold</button>
         <button id="italicBtn">Italic</button>
         <button id="codeBtn">Inline Code</button>
+        <button id="copyBtn">Copy</button>
         <span class="status-message" id="statusMsg"></span>
     </div>
     <div class="editor-container">
@@ -90,6 +91,7 @@
             const boldBtn = document.getElementById("boldBtn");
             const italicBtn = document.getElementById("italicBtn");
             const codeBtn = document.getElementById("codeBtn");
+            const copyBtn = document.getElementById("copyBtn");
             const noteNameDisplay = document.getElementById("note-name-display");
 
             let autosaveTimer = null;
@@ -99,7 +101,6 @@
             editorEl.value = initialContent;
             noteNameDisplay.textContent = noteName;
             updatePreview(); // Initial render
-
 
             // Event Listeners
             editorEl.addEventListener("input", () => {
@@ -111,6 +112,17 @@
             boldBtn.addEventListener("click", () => applyWrappedFormat("**"));
             italicBtn.addEventListener("click", () => applyWrappedFormat("*"));
             codeBtn.addEventListener("click", () => applyWrappedFormat("`"));
+            copyBtn.addEventListener("click", () => {
+                navigator.clipboard.writeText(editorEl.value)
+                    .then(() => {
+                        statusMsg.innerText = "Copied to clipboard!";
+                        setTimeout(() => { statusMsg.innerText = ""; }, 3000);
+                    })
+                    .catch(err => {
+                        console.error("Copy error:", err);
+                        statusMsg.innerText = "Copy failed!";
+                    });
+            });
 
             // --- Function Definitions (organized for clarity and future extraction) ---
 
