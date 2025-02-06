@@ -1,8 +1,10 @@
-# Bun Markdown Notes App
+# Notey MD
+
+## A Zero Added Dependency File Based Markdown Notebook
 
 ## Quickstart
 
-Make sure you have bun installed.
+Make sure you have Bun installed.
 
 start the server:
 
