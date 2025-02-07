@@ -135,10 +135,12 @@ async function handlePostRequest(request: Request, config: AppConfig): Promise<R
         try {
             const body = await request.json();
             const { filename, content } = body || {};
+
             if (typeof filename !== "string" || typeof content !== "string") {
                 return new Response("Invalid request body.", { status: 400 });
             }
             const safePath = ensureSafePath(filename, config.vaultPath);
+            // In index.ts inside the POST "/notes/save" block
             await writeNoteToDisk(safePath, content);
 
             fireOnNoteSavePlugins(safePath, content);
@@ -277,15 +279,12 @@ export function renderEditorPage(noteName: string, rawMarkdown: string): string 
     const ast = parseMarkdown(rawMarkdown);
     let rendered = renderMarkdownASTToHTML(ast);
 
-    // If the AST is completely empty, avoid producing extra tags.
     if (ast.length === 0) {
         rendered = "";
     }
 
-    const escapedName = escapeHtml(noteName);
-
     let replaced = editorHtml
-        .replace("PLACEHOLDER_NOTE_NAME", `"${escapedName}"`)
+        .replace("PLACEHOLDER_NOTE_NAME", JSON.stringify(noteName))
         .replace("PLACEHOLDER_CONTENT", JSON.stringify(rawMarkdown))
         .replace('<div id="preview"></div>', `<div id="preview">${rendered}</div>`);
 
