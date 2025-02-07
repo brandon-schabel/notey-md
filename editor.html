@@ -1,3 +1,7 @@
+<!-- ===========================
+     editor.html
+     (No changes in usage, but including full for clarity)
+     =========================== -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -57,6 +61,12 @@
         color: green;
         font-size: 0.9rem;
       }
+      [contenteditable='true']:focus {
+        outline: none !important;
+      }
+      :focus {
+        outline: none !important;
+      }
     </style>
   </head>
   <body>
@@ -65,8 +75,8 @@
       <button id="saveBtn">Save</button>
       <button data-format="**">Bold</button>
       <button data-format="*">Italic</button>
-      <button data-format="`">Inline Code</button>
-      <button data-format="```">Code Block</button>
+      <button data-format="\`">Inline Code</button>
+      <button data-format="\`\`\`">Code Block</button>
       <button data-format="[ ] ">Checkbox</button>
       <button id="linkBtn">Link</button>
       <button id="listBtn">List Item</button>
@@ -78,8 +88,7 @@
     </div>
     <script type="module">
       import { initEditor } from './editor.js'
-      // Note: The placeholders are now unquoted so that our JSON-stringified values are injected safely.
-      initEditor({ noteName: PLACEHOLDER_NOTE_NAME, initialContent: PLACEHOLDER_CONTENT })
+      initEditor({ noteName: 'PLACEHOLDER_NOTE_NAME', initialContent: 'PLACEHOLDER_CONTENT' })
     </script>
   </body>
 </html>

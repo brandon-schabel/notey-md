@@ -93,10 +93,10 @@ async function handleGetRequest(request: Request, config: AppConfig): Promise<Re
             let rawMarkdown = "";
             if (!existsSyncNode(safePath)) {
                 const defaultContent = "# New Note\n\nStart writing here...";
-                writeNoteToDiskSync(safePath, defaultContent);
+                await writeNoteToDisk(safePath, defaultContent);
                 rawMarkdown = defaultContent;
             } else {
-                rawMarkdown = readNoteFromDiskSync(safePath);
+                rawMarkdown = await readNoteFromDisk(safePath);
             }
             rawMarkdown = fireOnNoteLoadPlugins(safePath, rawMarkdown);
 
@@ -287,6 +287,7 @@ export function renderEditorPage(noteName: string, rawMarkdown: string): string 
     let replaced = editorHtml
         .replace("PLACEHOLDER_NOTE_NAME", `"${escapedName}"`)
         .replace("PLACEHOLDER_CONTENT", JSON.stringify(rawMarkdown))
+        .replace('<div id="preview"></div>', `<div id="preview">${rendered}</div>`);
 
     return replaced;
 }
