@@ -17,9 +17,9 @@ Then, open your browser and visit:
 
 ---
 ## What is Notey MD?
-Noty MD is a ZERO config, zero dependency, super lightweight Markdown Notebook.
+Noty MD is a ZERO config, zero dependency, self hosted, super lightweight Markdown Notebook.
 
-Noty MD uses only the markdown files themselves. So if you have a collection of a bunch 
+Notey MD uses only the markdown files themselves. So if you have a collection of a bunch 
 of Markdown files just add it to the notes directory and you'll
 be able to view and edit them in the browser. 
 
