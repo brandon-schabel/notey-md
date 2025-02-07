@@ -16,6 +16,16 @@ Then, open your browser and visit:
 [http://localhost:3001](http://localhost:3001)
 
 ---
+## What is Notey MD?
+Noty MD is a ZERO config, zero dependency, self hosted, super lightweight Markdown Notebook.
+
+Notey MD uses only the markdown files themselves. So if you have a collection of a bunch 
+of Markdown files just add it to the notes directory and you'll
+be able to view and edit them in the browser. 
+
+By default the notes directory is in the gitignore, so if you fork
+the repo and want to save your markdown files to github, just remove
+the notes line from the gitignore.
 
 ## Contributing
 
