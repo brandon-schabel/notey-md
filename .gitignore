@@ -175,3 +175,7 @@ dist
 .DS_Store
 
 notes
+
+
+.test-tmp
+.test-tmp-extra

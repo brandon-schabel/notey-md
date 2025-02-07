@@ -1,89 +1,64 @@
-/* --------------------------------------------------------------------------------
-   index.ts
-
-   SINGLE-FILE CORE OF OUR BUN-BASED MARKDOWN NOTES APP
-   ---------------------------------------------------
-   This file contains all primary logic:
-     - Bun server setup (SSR)
-     - Simple route to view/edit notes from disk
-     - Markdown parser & renderer
-     - Editor logic (live preview) with autosave & toolbar
-     - Basic file I/O usage using Bun APIs
-     - Basic Search/Indexing
-     - Minimal plugin system with hooks
-
-   Run:
-     bun run index.ts
-
-   Visit:
-     http://localhost:3001
-
--------------------------------------------------------------------------------- */
-
-import { readdirSync } from "node:fs";
+import {
+    readdirSync,
+    existsSync as nodeExistsSync,
+    readFileSync as nodeReadFileSync,
+    writeFileSync as nodeWriteFileSync
+} from "node:fs";
 import { promises as fs } from "node:fs";
-import { resolve, dirname, relative } from 'path';
-import { fileURLToPath } from 'url';
-import { mkdir } from 'node:fs/promises';
-//import editorHtml from './editor.html'; // No longer needed
-
-/* --------------------------------------------------------------------------------
-   CONFIGURATION INTERFACE
--------------------------------------------------------------------------------- */
+import { dirname, relative, resolve } from "path";
+import { fileURLToPath } from "url";
+import { mkdir } from "node:fs/promises";
+import { existsSync as existsSyncNode } from "node:fs";
 
 export interface AppConfig {
     port: number;
     vaultPath: string;
 }
 
+const __filename = fileURLToPath(import.meta.url);
+const workspace = dirname(__filename);
+
 export const defaultConfig: AppConfig = {
     port: 3001,
-    vaultPath: "./notes"
+    vaultPath:
+        process.env.NODE_ENV === "test"
+            ? resolve(workspace, "test-notes")
+            : resolve(workspace, "notes")
 };
 
-/* --------------------------------------------------------------------------------
-   SERVER LOGIC - BASIC SSR WITH BUN
--------------------------------------------------------------------------------- */
+// Create a type for the server
+export type Server = ReturnType<typeof Bun.serve>;
 
-// Utility function to get the directory of the current file (more robust than import.meta.dir)
-const __filename = fileURLToPath(import.meta.url);
-console.log(`__filename: ${__filename}`);
-
-const workspace = dirname(__filename);
-console.log(`workspace: ${workspace}`);
-
-const notesDir = resolve(workspace, "notes");
-console.log(`notesDir: ${notesDir}`);
-
-
-export async function startServer(config: AppConfig) {
-    // Ensure the vault directory exists (will create if missing but never override an existing one)
-    await ensureVaultDirectoryExists(notesDir);
-
-    // Build a search index at startup so we can quickly handle search queries
-    await buildSearchIndex(config);
-
-    // Register any built-in or example plugins before the server starts
-    registerPlugin(examplePlugin);
-
+// Separate server creation from starting it
+export function createServer(config: AppConfig): Server {
     const server = Bun.serve({
         port: config.port,
-        async fetch(request: Request) {
+        async fetch(request: Request): Promise<Response> {
             const { method } = request;
             try {
                 if (method === "GET") {
-                    return await handleGetRequest(request, config);
+                    return handleGetRequest(request, config);
                 } else if (method === "POST") {
-                    return await handlePostRequest(request, config);
+                    return handlePostRequest(request, config);
                 }
                 return new Response("Method Not Allowed", { status: 405 });
             } catch (err) {
-                console.error("Server error handling request:", err);
+                console.error("Server error:", err);
                 return new Response("Internal Server Error", { status: 500 });
             }
         }
     });
 
+    return server;
+}
+
+// Modify startServer to use createServer
+export async function startServer(config: AppConfig): Promise<Server> {
+    await ensureVaultDirectoryExists(config.vaultPath);
+    await buildSearchIndex(config);
+    registerPlugin(examplePlugin);
+
+    const server = createServer(config);
     console.log(`Server running at http://localhost:${config.port}`);
     return server;
 }
@@ -92,45 +67,47 @@ async function handleGetRequest(request: Request, config: AppConfig): Promise<Re
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Home route
     if (path === "/") {
-        return new Response(renderHomePageHTML(), {
+        const homeHTML = renderHomePageHTML(config);
+        return new Response(homeHTML, {
             headers: { "Content-Type": "text/html" }
         });
     }
 
-    // GET /notes/<filename>
-    // Renders an editable view of the note with a live-preview markdown editor
+    if (path === "/editor.js" || path === "/notes/editor.js") {
+        const tsContent = await Bun.file("./editor.ts").text();
+        const transpiler = new Bun.Transpiler({ loader: "ts" });
+        const jsContent = await transpiler.transform(tsContent);
+        return new Response(jsContent, {
+            headers: { "Content-Type": "application/javascript" }
+        });
+    }
+
     if (path.startsWith("/notes/")) {
         const noteName = path.replace("/notes/", "").trim();
         if (!noteName) {
             return new Response("No note specified.", { status: 400 });
         }
         try {
-            const safePath = ensureSafePath(noteName, notesDir);
-            let rawMarkdown: string;
-
-            if (!(await fileExists(safePath))) {
-                // Initialize a new note with default content if it doesn't exist.
+            const safePath = ensureSafePath(noteName, config.vaultPath);
+            let rawMarkdown = "";
+            if (!existsSyncNode(safePath)) {
                 const defaultContent = "# New Note\n\nStart writing here...";
-                await writeNoteToDisk(safePath, defaultContent);
+                writeNoteToDiskSync(safePath, defaultContent);
                 rawMarkdown = defaultContent;
             } else {
-                rawMarkdown = await readNoteFromDisk(safePath);
+                rawMarkdown = readNoteFromDiskSync(safePath);
             }
-
-            // Fire plugin hook: onNoteLoad
             rawMarkdown = fireOnNoteLoadPlugins(safePath, rawMarkdown);
 
-            // If the URL has a "copy" query parameter, return the raw text
             if (url.searchParams.has("copy")) {
+                // Return plain text
                 return new Response(rawMarkdown, {
                     headers: { "Content-Type": "text/plain" }
                 });
             }
-
-            const editorPageHtml = await renderEditorPage(noteName, rawMarkdown);
-            return new Response(editorPageHtml, {
+            // Return the HTML editor
+            return new Response(renderEditorPage(noteName, rawMarkdown), {
                 headers: { "Content-Type": "text/html" }
             });
         } catch (err) {
@@ -139,17 +116,14 @@ async function handleGetRequest(request: Request, config: AppConfig): Promise<Re
         }
     }
 
-    // GET /search?query=...
-    // Returns JSON array of search matches
     if (path === "/search") {
         const query = url.searchParams.get("query") || "";
-        const results = await searchNotes(query);
-        return new Response(JSON.stringify(results, null, 2), {
-            headers: { "Content-Type": "application/json" }
-        });
+        return new Response(
+            JSON.stringify(searchNotes(query), null, 2),
+            { headers: { "Content-Type": "application/json" } }
+        );
     }
 
-    // Not found for other paths
     return new Response("Not Found", { status: 404 });
 }
 
@@ -157,209 +131,167 @@ async function handlePostRequest(request: Request, config: AppConfig): Promise<R
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // POST /notes/save
-    // Expects a JSON body: { filename: string, content: string }
     if (path === "/notes/save") {
         try {
             const body = await request.json();
-            const { filename, content } = body;
+            const { filename, content } = body || {};
             if (typeof filename !== "string" || typeof content !== "string") {
                 return new Response("Invalid request body.", { status: 400 });
             }
-            const safePath = ensureSafePath(filename, notesDir);
-
-            // Write the note to disk
+            const safePath = ensureSafePath(filename, config.vaultPath);
             await writeNoteToDisk(safePath, content);
 
-            // Fire plugin hook: onNoteSave
             fireOnNoteSavePlugins(safePath, content);
-
-            // Update search index for this note
             updateSearchIndexForNote(safePath, content);
-
-            return new Response("Note saved successfully!", { status: 200 });
+            return new Response("Note saved successfully.", { status: 200 });
         } catch (err) {
-            console.error("Error in /notes/save:", err);
+            console.error("Error saving note:", err);
             return new Response("Failed to save note.", { status: 500 });
         }
     }
 
-    // If no matching route
-    return new Response("POST handler not implemented yet.", { status: 501 });
+    return new Response("Not implemented.", { status: 501 });
 }
 
-/* --------------------------------------------------------------------------------
-   BASIC HOME PAGE HTML
--------------------------------------------------------------------------------- */
-
-function renderHomePageHTML(): string {
-    // List all markdown files from the vault
-    const fileList = listAllMarkdownFiles(notesDir);
-    const filesHtml = fileList.map(filePath => {
-        const relPath = relative(notesDir, filePath);
-        return `<li>
-            <div class="note-item">
-                <a href="/notes/${encodeURIComponent(relPath)}">${relPath}</a>
-                <button class="copy-btn" data-path="${encodeURIComponent(relPath)}">Copy</button>
-                <span class="copy-notification">Copied!</span>
-            </div>
-        </li>`;
-    }).join("\n");
-
-    return /* html */ `
+function renderHomePageHTML(config: AppConfig): string {
+    const files = listAllMarkdownFiles(config.vaultPath);
+    const listItems = files
+        .map((filePath) => {
+            const relPath = relative(config.vaultPath, filePath);
+            return `
+      <li class="note-item">
+        <a href="/notes/${encodeURIComponent(relPath)}">${relPath}</a>
+        <button class="copy-btn" data-path="${encodeURIComponent(relPath)}">Copy</button>
+      </li>
+    `;
+        })
+        .join("");
+    return /*html*/ `
     <!DOCTYPE html>
     <html lang="en">
     <head>
-      <meta charset="UTF-8" />
-      <title>Bun Markdown Notes App</title>
+      <meta charset="UTF-8"/>
+      <title>Notes Home</title>
       <style>
-        body {
-          font-family: sans-serif;
-          margin: 2rem;
+        :root {
+          box-sizing: border-box;
         }
-        h1, h2 {
-          color: #333;
+        * {
+          box-sizing: inherit;
+        }
+        body {
+          margin: 0;
+          padding: 1rem;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          max-width: 700px;
+          margin-left: auto;
+          margin-right: auto;
+          line-height: 1.5;
+        }
+        h1 {
+          text-align: center;
+          margin: 1rem 0;
+        }
+        .search-bar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+        .search-bar input {
+          width: 70%;
+          padding: 0.5rem;
+          font-size: 1rem;
+        }
+        .sort-menu {
+          padding: 0.5rem;
+          font-size: 1rem;
         }
         ul {
           list-style: none;
           padding: 0;
         }
-        li {
-          margin-bottom: 0.5rem;
-        }
-        a {
-          text-decoration: none;
-          color: blue;
-        }
         .note-item {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          position: relative;
+          margin: 0.5rem 0;
         }
         .copy-btn {
-          opacity: 0;
-          padding: 0.2rem 0.5rem;
+          padding: 0.4rem 0.8rem;
           font-size: 0.9rem;
-          transition: opacity 0.2s ease;
           cursor: pointer;
-          background: #f0f0f0;
-          border: 1px solid #ddd;
-          border-radius: 3px;
-        }
-        .note-item:hover .copy-btn {
-          opacity: 1;
-        }
-        .copy-notification {
-          position: absolute;
-          left: 100%;
-          margin-left: 8px;
-          background: #4CAF50;
-          color: white;
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 0.9rem;
-          opacity: 0;
-          transition: all 0.2s ease;
-          transform: translateY(-50%);
-          pointer-events: none;
-          white-space: nowrap;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .copy-notification.show {
-          opacity: 1;
         }
       </style>
     </head>
     <body>
-      <h1>Welcome to the Bun Markdown Notes App</h1>
-      <h2>Files in Vault</h2>
-      <ul>
-        ${filesHtml}
-      </ul>
-  
-      <div style="margin-top: 1rem;">
-        <strong>Search Demo</strong><br/>
-        <form action="/search" method="GET">
-          <input type="text" name="query" placeholder="Enter search query" />
-          <button type="submit">Search</button>
+      <h1>My Markdown Notes</h1>
+      <div class="search-bar">
+        <form action="/search" method="GET" style="flex:1; margin-right:0.5rem;">
+          <input type="text" name="query" placeholder="Search notes...">
         </form>
-        <p>(Note: This will return raw JSON results for now.)</p>
+        <select class="sort-menu" onchange="alert('Sort not yet implemented!')">
+          <option>Sort by Title</option>
+          <option>Sort by Date Created</option>
+          <option>Sort by Date Modified</option>
+        </select>
       </div>
-  
-      <div class="placeholder">
-        <p>Future Features:</p>
-        <ul>
-          <li>Live Markdown editing</li>
-          <li>File-based storage in <code>./notes</code></li>
-          <li>Search/indexing (now partially functional!)</li>
-          <li>Plugin hooks</li>
-          <li>And more...</li>
-        </ul>
-      </div>
-  
-        <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const buttons = document.querySelectorAll(".copy-btn");
-            buttons.forEach(button => {
-            button.addEventListener("click", async function() {
-                const path = button.getAttribute("data-path");
-                try {
-                const response = await fetch("/notes/" + path + "?copy=1");
-                if (!response.ok) {
-                    console.error("Failed to copy: " + response.statusText);
-                    return;
+      <ul>${listItems}</ul>
+      <script>
+        document.addEventListener("DOMContentLoaded", () => {
+          const copyButtons = document.querySelectorAll(".copy-btn");
+          copyButtons.forEach(btn => {
+            btn.addEventListener("click", async () => {
+              const path = btn.dataset.path;
+              try {
+                const resp = await fetch("/notes/" + path + "?copy=1");
+                if (!resp.ok) {
+                  console.error("Failed to copy: " + resp.statusText);
+                  return;
                 }
-                const content = await response.text();
+                const content = await resp.text();
                 await navigator.clipboard.writeText(content);
-
-                // Temporarily change the button text to "Copied!"
-                const originalText = button.textContent;
-                button.textContent = "Copied!";
-
-                // Clear any existing timeout and revert the text after 1500ms
-                if (button.timeoutId) {
-                    clearTimeout(button.timeoutId);
-                }
-                button.timeoutId = setTimeout(() => {
-                    button.textContent = originalText;
-                }, 1500);
-
-                // Optional visual feedback on the button
-                button.style.backgroundColor = '#e0e0e0';
-                setTimeout(() => {
-                    button.style.backgroundColor = '';
-                }, 200);
-                } catch (err) {
-                console.error("Error copying document: " + err);
-                }
+                btn.textContent = "Copied!";
+                setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+              } catch(e) {
+                console.error("Error copying:", e);
+              }
             });
-            });
+          });
         });
-        </script>
+      </script>
     </body>
     </html>
-    `;
+  `;
 }
 
-/* --------------------------------------------------------------------------------
-   EDITOR PAGE HTML
-   Updated to include a functional toolbar, live preview logic, and autosave.
--------------------------------------------------------------------------------- */
+// In renderEditorPage we now use the globally overridable readFileSync.
+// This lets our tests (which mock globalThis.readFileSync) work correctly.
+export function renderEditorPage(noteName: string, rawMarkdown: string): string {
+    const readFile =
+        (typeof (globalThis as any).readFileSync === "function"
+            ? (globalThis as any).readFileSync
+            : nodeReadFileSync) as typeof nodeReadFileSync;
+    const editorHtml = readFile(resolve(workspace, "editor.html"), { encoding: "utf8" });
 
-function escapeForTextarea(value: string): string {
-    // Basic HTML escape, plus we specifically escape `</textarea>` to avoid breaking out of the textarea.
-    return value
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;")
-        // Prevent a literal "</textarea>" from prematurely closing the textarea
-        .replace(/<\/textarea>/gi, "&lt;/textarea&gt;");
+    const ast = parseMarkdown(rawMarkdown);
+    let rendered = renderMarkdownASTToHTML(ast);
+
+    // If the AST is completely empty, avoid producing extra tags.
+    if (ast.length === 0) {
+        rendered = "";
+    }
+
+    const escapedName = escapeHtml(noteName);
+
+    let replaced = editorHtml
+        .replace("PLACEHOLDER_NOTE_NAME", `"${escapedName}"`)
+        .replace("PLACEHOLDER_CONTENT", JSON.stringify(rawMarkdown))
+
+    return replaced;
 }
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
     return value
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -368,82 +300,83 @@ function escapeHtml(value: string): string {
         .replace(/'/g, "&#39;");
 }
 
-
-/* --------------------------------------------------------------------------------
-   MARKDOWN ENGINE (SERVER-SIDE VERSION)
--------------------------------------------------------------------------------- */
-
 export interface MarkdownNode {
-    type: string; // e.g. "heading", "paragraph", "codeblock"
-    level?: number; // heading level (1..6) if type = heading
-    content?: string; // raw text for paragraphs/headings
-    children?: MarkdownNode[]; // for possible nesting if needed
+    type: string;
+    level?: number;
+    content?: string;
+    children?: MarkdownNode[];
 }
 
-/**
- * A naive Markdown parser (server-side):
- * - Detects triple backtick code blocks
- * - Detects headings (#, ##, ...)
- * - Groups other text into paragraphs
- * - Ignores lists/blockquotes for now
- * - Does minimal inline parse (bold/italic/code) only during final rendering
- */
 export function parseMarkdown(markdownContent: string): MarkdownNode[] {
     const lines = markdownContent.split(/\r?\n/);
     const ast: MarkdownNode[] = [];
+
     let inCodeBlock = false;
-    let codeBlockBuffer: string[] = [];
+    let codeBuffer: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+        const rawLine = lines[i];
+        const trimmedLeft = rawLine.trimStart();
 
-        // Detect code block fences ```
-        if (line.trim().startsWith("```")) {
+        if (trimmedLeft.startsWith("```")) {
             if (!inCodeBlock) {
                 inCodeBlock = true;
-                codeBlockBuffer = [];
+                codeBuffer = [];
             } else {
+                ast.push({ type: "codeblock", content: codeBuffer.join("\n") });
                 inCodeBlock = false;
-                ast.push({
-                    type: "codeblock",
-                    content: codeBlockBuffer.join("\n")
-                });
             }
             continue;
         }
 
         if (inCodeBlock) {
-            codeBlockBuffer.push(line);
+            codeBuffer.push(rawLine);
             continue;
         }
 
-        // Headings (# up to 6)
-        const headingMatch = /^(\#{1,6})\s+(.*)$/.exec(line);
+        const headingMatch = /^[#]{1,6}\s+(.*)$/.exec(trimmedLeft);
         if (headingMatch) {
-            const level = headingMatch[1].length;
-            const content = headingMatch[2];
+            const hashCount = (trimmedLeft.match(/^#+/) || [""])[0].length;
             ast.push({
                 type: "heading",
-                level,
-                content
+                level: hashCount,
+                content: headingMatch[1]
             });
             continue;
         }
 
-        // Paragraph fallback (non-empty)
-        if (line.trim().length > 0) {
+        const checkboxMatch = /^[*-]\s+\$begin:math:display\$\s*([ xX])\s*\$end:math:display\$\s+(.*)$/.exec(trimmedLeft);
+        if (checkboxMatch) {
+            const isChecked = checkboxMatch[1].toLowerCase() === "x";
+            const restContent = checkboxMatch[2];
+            ast.push({
+                type: "checkbox",
+                content: (isChecked ? "[x] " : "[ ] ") + restContent
+            });
+            continue;
+        }
+
+        const listItemMatch = /^[*-]\s+(.*)$/.exec(trimmedLeft);
+        if (listItemMatch) {
+            ast.push({
+                type: "list-item",
+                content: listItemMatch[1]
+            });
+            continue;
+        }
+
+        if (trimmedLeft.length > 0) {
             ast.push({
                 type: "paragraph",
-                content: line.trim()
+                content: rawLine.trimEnd()
             });
         }
     }
 
-    // If file ended while in code block
-    if (inCodeBlock && codeBlockBuffer.length > 0) {
+    if (inCodeBlock && codeBuffer.length) {
         ast.push({
             type: "codeblock",
-            content: codeBlockBuffer.join("\n")
+            content: codeBuffer.join("\n")
         });
     }
 
@@ -451,76 +384,54 @@ export function parseMarkdown(markdownContent: string): MarkdownNode[] {
 }
 
 export function renderMarkdownASTToHTML(ast: MarkdownNode[]): string {
-    let htmlOutput = "";
+    const lines: string[] = [];
 
     for (const node of ast) {
         if (node.type === "heading" && node.level && node.content) {
-            const safeText = escapeHtml(node.content);
-            htmlOutput += `<h${node.level}>${inlineParse(safeText)}</h${node.level}>\n`;
+            lines.push(`<h${node.level}>${inlineParse(escapeHtml(node.content))}</h${node.level}>`);
         } else if (node.type === "paragraph" && node.content) {
-            const safeText = escapeHtml(node.content);
-            htmlOutput += `<p>${inlineParse(safeText)}</p>\n`;
+            lines.push(`<p>${inlineParse(escapeHtml(node.content))}</p>`);
         } else if (node.type === "codeblock" && node.content) {
-            const safeCode = escapeHtml(node.content);
-            htmlOutput += `<pre><code>${safeCode}</code></pre>\n`;
+            lines.push(`<pre><code>${escapeHtml(node.content)}</code></pre>`);
+        } else if (node.type === "list-item" && node.content) {
+            lines.push(`<ul><li>${inlineParse(escapeHtml(node.content))}</li></ul>`);
+        } else if (node.type === "checkbox" && node.content) {
+            const isChecked = node.content.startsWith("[x]");
+            // The regex below is kept minimal for this example.
+            const afterBracket = node.content.replace(/^$begin:math:display$x$end:math:display$\s+|^$begin:math:display$\\s$end:math:display$\s+/, "");
+            lines.push(`
+<ul>
+  <li>
+    <label>
+      <input type="checkbox" ${isChecked ? "checked" : ""} disabled>
+      ${inlineParse(escapeHtml(afterBracket))}
+    </label>
+  </li>
+</ul>
+			`);
         }
     }
 
-    return htmlOutput;
+    return lines.join("\n");
 }
 
-/**
- * Very naive inline parsing:
- * - **bold**, __bold__
- * - *italic*, _italic_
- * - `inline code`
- */
-function inlineParse(text: string): string {
+export function inlineParse(text: string): string {
     let result = text;
-
-    // Inline code
-    result = result.replace(/`([^`]+)`/g, (_, codeText) => {
-        return `<code class="inline">${codeText}</code>`;
-    });
-
-    // Bold: **text** or __text__
-    result = result.replace(/\*\*(.*?)\*\*/g, (_, boldText) => {
-        return `<strong>${boldText}</strong>`;
-    });
-    result = result.replace(/\_\_(.*?)\_\_/g, (_, boldText) => {
-        return `<strong>${boldText}</strong>`;
-    });
-
-    // Italic: *text* or _text_
-    result = result.replace(/\*(.*?)\*/g, (_, italics) => {
-        return `<em>${italics}</em>`;
-    });
-    result = result.replace(/\_(.*?)\_/g, (_, italics) => {
-        return `<em>${italics}</em>`;
-    });
-
+    result = result.replace(/\*\*\*(.*?)\*\*\*/g, (_, triple) => `<strong><em>${triple}</em></strong>`);
+    result = result.replace(/\*\*(.*?)\*\*/g, (_, boldText) => `<strong>${boldText}</strong>`);
+    result = result.replace(/\_\_(.*?)\_\_/g, (_, boldText) => `<strong>${boldText}</strong>`);
+    result = result.replace(/\*(.*?)\*/g, (_, italics) => `<em>${italics}</em>`);
+    result = result.replace(/\_(.*?)\_/g, (_, italics) => `<em>${italics}</em>`);
+    result = result.replace(/`([^`]+)`/g, (_, codeText) => `<code class="inline">${codeText}</code>`);
     return result;
 }
 
-/* --------------------------------------------------------------------------------
-   EDITOR LOGIC PLACEHOLDERS (PUBLIC INTERFACE)
--------------------------------------------------------------------------------- */
-
-/**
- * These are placeholders or server stubs for client-side actions.
- * We keep them exported so our tests can import them if needed.
- */
-export function initializeEditorClientSide() {
-    // Placeholder for older test usage
+export function readNoteFromDiskSync(path: string): string {
+    return nodeReadFileSync(path, { encoding: "utf8" });
 }
-
-export function handleEditorInputChange(rawMarkdown: string) {
-    // Placeholder for older test usage
+export function writeNoteToDiskSync(path: string, content: string): void {
+    nodeWriteFileSync(path, content, { encoding: "utf8" });
 }
-
-/* --------------------------------------------------------------------------------
-   FILESYSTEM & STORAGE (using Bun APIs)
--------------------------------------------------------------------------------- */
 
 export async function readNoteFromDisk(notePath: string): Promise<string> {
     try {
@@ -533,142 +444,90 @@ export async function readNoteFromDisk(notePath: string): Promise<string> {
 
 export async function writeNoteToDisk(notePath: string, content: string): Promise<void> {
     try {
-        console.log(`Writing note to ${notePath}`);
-        await Bun.write(notePath, content); // Use the absolute path directly
+        await Bun.write(notePath, content);
     } catch (err) {
         throw new Error(`writeNoteToDisk failed for ${notePath}: ${err}`);
     }
 }
 
-/**
- * Ensures the requested file is inside the vault directory.
- */
-function ensureSafePath(filename: string, baseDir: string): string {
-    const resolved = new URL(filename, `file://${baseDir.replace(/\\/g, "/") + "/"}`).pathname;
-    if (!resolved.startsWith(new URL(baseDir, "file://").pathname)) {
+export function ensureSafePath(filename: string, baseDir: string): string {
+    const fullPath = resolve(baseDir, filename);
+    if (!fullPath.startsWith(resolve(baseDir) + "/")) {
         throw new Error("Unsafe path detected!");
     }
-    return resolved;
+    return fullPath;
 }
 
-/**
- * Checks whether a file exists at the given path.
- */
-async function fileExists(notePath: string): Promise<boolean> {
-    try {
-        const file = Bun.file(notePath);
-        return await file.exists();
-    } catch {
-        return false;
-    }
-}
-
-/**
- * Ensures the vault directory exists.
- * If the directory doesn't exist, it is created.
- * If the path exists but is not a directory, an error is thrown.
- */
-async function ensureVaultDirectoryExists(vaultPath: string): Promise<void> {
+export async function ensureVaultDirectoryExists(vaultPath: string): Promise<void> {
     try {
         const stat = await fs.stat(vaultPath);
         if (!stat.isDirectory()) {
-            throw new Error(`${vaultPath} exists and is not a directory!`);
+            throw new Error(`${vaultPath} is not a directory!`);
         }
     } catch (err: any) {
-        // If the error indicates the directory does not exist, create it.
         if (err.code === "ENOENT") {
-            try {
-                await fs.mkdir(vaultPath, { recursive: true });
-                console.log(`Vault directory created at: ${vaultPath}`);
-            } catch (mkdirErr) {
-                throw new Error(`Failed to create vault directory at ${vaultPath}: ${mkdirErr}`);
-            }
+            await mkdir(vaultPath, { recursive: true });
+            console.log(`Vault directory created at: ${vaultPath}`);
         } else {
             throw err;
         }
     }
 }
 
-/* --------------------------------------------------------------------------------
-   SEARCH & INDEXING
--------------------------------------------------------------------------------- */
-
-/**
- * We'll keep an in-memory inverted index. For example:
- *   indexMap[word] = Set of absolute file paths that contain this word
- */
-const indexMap: Map<string, Set<string>> = new Map();
-
+// SEARCH
 interface SearchResult {
     notePath: string;
     snippet: string;
 }
 
-/**
- * Scan the vault folder, read all .md files, and build an inverted index.
- */
+const indexMap: Map<string, Set<string>> = new Map();
+
 export async function buildSearchIndex(config: AppConfig): Promise<void> {
     indexMap.clear();
-    const allFiles = listAllMarkdownFiles(notesDir);
-
+    const allFiles = listAllMarkdownFiles(config.vaultPath);
     for (const filePath of allFiles) {
         const content = await readNoteFromDisk(filePath);
         indexDocument(filePath, content);
     }
-
-    console.log(`Search index built. Indexed ${allFiles.length} markdown file(s).`);
+    console.log(`Search index built. ${allFiles.length} files indexed.`);
 }
 
-/**
- * After we save/modify a single note, update the index for that note.
- */
-export function updateSearchIndexForNote(notePath: string, newContent: string): void {
+export function updateSearchIndexForNote(notePath: string, content: string): void {
     removeFromIndex(notePath);
-    indexDocument(notePath, newContent);
+    indexDocument(notePath, content);
 }
 
-/**
- * Index a single document's content.
- */
 function indexDocument(absPath: string, content: string): void {
-    const text = content.toLowerCase();
-    const tokens = text.split(/[^a-z0-9_-]+/g);
-
-    for (const token of tokens) {
-        if (!token) continue;
-        if (!indexMap.has(token)) {
-            indexMap.set(token, new Set());
+    const words = content.toLowerCase().split(/[^a-z0-9_-]+/g);
+    for (const w of words) {
+        if (!w) continue;
+        if (!indexMap.has(w)) {
+            indexMap.set(w, new Set());
         }
-        indexMap.get(token)?.add(absPath);
+        indexMap.get(w)!.add(absPath);
     }
 }
 
-/**
- * Removes all references to a particular note from the index.
- */
 function removeFromIndex(absPath: string) {
-    for (const [word, paths] of indexMap.entries()) {
+    for (const [term, paths] of indexMap) {
         if (paths.has(absPath)) {
             paths.delete(absPath);
             if (paths.size === 0) {
-                indexMap.delete(word);
+                indexMap.delete(term);
             }
         }
     }
 }
 
-/**
- * Returns a list of .md file paths for everything inside the vault, recursively.
- */
 function listAllMarkdownFiles(dirPath: string): string[] {
     const result: string[] = [];
-    function recurse(currentPath: string) {
-        const entries = readdirSync(currentPath, { withFileTypes: true });
-        for (const entry of entries) {
-            if (entry.isDirectory()) {
-                recurse(`${currentPath}/${entry.name}`);
-            } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
-                result.push(`${currentPath}/${entry.name}`);
+    function recurse(current: string) {
+        const entries = readdirSync(current, { withFileTypes: true });
+        for (const e of entries) {
+            if (e.isDirectory()) {
+                recurse(`${current}/${e.name}`);
+            } else if (e.isFile() && e.name.toLowerCase().endsWith(".md")) {
+                result.push(`${current}/${e.name}`);
             }
         }
     }
@@ -676,66 +535,52 @@ function listAllMarkdownFiles(dirPath: string): string[] {
     return result;
 }
 
-/**
- * Search the in-memory index for the query.
- */
-export async function searchNotes(query: string): Promise<SearchResult[]> {
-    const lowerQuery = query.toLowerCase().trim();
-    if (!lowerQuery) return [];
+export function searchNotes(query: string): SearchResult[] {
+    const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return [];
 
-    const tokens = lowerQuery.split(/\s+/);
     let candidatePaths: Set<string> | null = null;
-
-    for (const token of tokens) {
-        const pathsForToken = indexMap.get(token) || new Set();
-        if (candidatePaths === null) {
-            candidatePaths = new Set(pathsForToken);
+    for (const t of tokens) {
+        const matchedPaths = indexMap.get(t) || new Set();
+        if (!candidatePaths) {
+            candidatePaths = new Set(matchedPaths);
         } else {
-            for (const path of [...candidatePaths]) {
-                if (!pathsForToken.has(path)) {
-                    candidatePaths.delete(path);
+            for (const p of [...candidatePaths]) {
+                if (!matchedPaths.has(p)) {
+                    candidatePaths.delete(p);
                 }
             }
-        }
-        if (candidatePaths.size === 0) break;
-    }
-
-    if (!candidatePaths || candidatePaths.size === 0) return [];
-
-    const results: SearchResult[] = [];
-    for (const filePath of candidatePaths) {
-        const snippet = await buildSnippetForFile(filePath, query);
-        results.push({
-            notePath: filePath,
-            snippet
-        });
-    }
-    return results;
-}
-
-/**
- * Build a snippet showing where the query text is found in the file, or return the first line.
- */
-async function buildSnippetForFile(filePath: string, query: string): Promise<string> {
-    try {
-        const content = await readNoteFromDisk(filePath);
-        const lines = content.split(/\r?\n/);
-        const lowerQ = query.toLowerCase();
-        for (const line of lines) {
-            if (line.toLowerCase().includes(lowerQ)) {
-                return line.slice(0, 100).replace(/</g, "&lt;") + "...";
+            if (candidatePaths.size === 0) {
+                break;
             }
         }
-        return lines[0]?.slice(0, 100) + "...";
-    } catch (err) {
+    }
+
+    if (!candidatePaths || !candidatePaths.size) return [];
+    return [...candidatePaths].map((notePath) => {
+        const snippet = buildSnippetForFileSync(notePath, query);
+        return { notePath, snippet };
+    });
+}
+
+export function buildSnippetForFileSync(filePath: string, query: string): string {
+    try {
+        const content = readNoteFromDiskSync(filePath);
+        const lines = content.split(/\r?\n/);
+        const lower = query.toLowerCase();
+
+        for (const line of lines) {
+            if (line.toLowerCase().includes(lower)) {
+                return line.slice(0, 100) + "...";
+            }
+        }
+        return lines[0] ? lines[0].slice(0, 100) + "..." : "";
+    } catch {
         return "";
     }
 }
 
-/* --------------------------------------------------------------------------------
-   PLUGIN SYSTEM PLACEHOLDERS
--------------------------------------------------------------------------------- */
-
+// PLUGIN SYSTEM
 export interface Plugin {
     name: string;
     onNoteLoad?: (path: string, content: string) => string;
@@ -748,54 +593,51 @@ export function registerPlugin(plugin: Plugin): void {
     plugins.push(plugin);
 }
 
-function fireOnNoteLoadPlugins(path: string, originalContent: string): string {
-    let content = originalContent;
-    for (const plugin of plugins) {
-        if (plugin.onNoteLoad) {
-            const maybeTransformed = plugin.onNoteLoad(path, content);
-            if (typeof maybeTransformed === "string") {
-                content = maybeTransformed;
+function fireOnNoteLoadPlugins(path: string, content: string): string {
+    let output = content;
+    for (const plg of plugins) {
+        if (plg.onNoteLoad) {
+            try {
+                const res = plg.onNoteLoad(path, output);
+                if (typeof res === "string") {
+                    output = res;
+                }
+            } catch (err) {
+                // log error if needed; continue to next plugin
             }
         }
     }
-    return content;
+    return output;
 }
 
 function fireOnNoteSavePlugins(path: string, content: string): void {
-    for (const plugin of plugins) {
-        if (plugin.onNoteSave) {
-            plugin.onNoteSave(path, content);
+    for (const plg of plugins) {
+        if (plg.onNoteSave) {
+            try {
+                plg.onNoteSave(path, content);
+            } catch (err) {
+                // log error and continue
+            }
         }
     }
 }
 
-/**
- * An example plugin: logs when a note is loaded or saved.
- */
 const examplePlugin: Plugin = {
     name: "ExamplePlugin",
-    onNoteLoad: (path, content) => {
-        console.log(`[ExamplePlugin] onNoteLoad triggered for: ${path}`);
-        if (path.toLowerCase().endsWith("secret.md")) {
-            return content + "\n\n<!-- Plugin says: This is a secret note! -->";
+    onNoteLoad(path, content) {
+        console.log(`[ExamplePlugin] Loading note: ${path}`);
+        if (path.toLowerCase().includes("secret")) {
+            return content + "\n<!-- SECRET NOTE DETECTED -->";
         }
         return content;
     },
-    onNoteSave: (path, _content) => {
-        console.log(`[ExamplePlugin] onNoteSave triggered for: ${path}`);
+    onNoteSave(path, _content) {
+        console.log(`[ExamplePlugin] Saving note: ${path}`);
     }
 };
 
-/* --------------------------------------------------------------------------------
-   TESTABILITY & EXPORTS
--------------------------------------------------------------------------------- */
-// (Already exporting the key items above)
-
-/* --------------------------------------------------------------------------------
-   MAIN EXECUTION
--------------------------------------------------------------------------------- */
-
-if (import.meta.main) {
+// IMPORTANT: Only start the server if not in test mode
+if (import.meta.main && process.env.NODE_ENV !== "test") {
     (async () => {
         try {
             await startServer(defaultConfig);
@@ -804,52 +646,4 @@ if (import.meta.main) {
             process.exit(1);
         }
     })();
-}
-
-
-async function renderEditorPage(noteName: string, rawMarkdown: string): Promise<string> {
-    // 1. Read the editor.html file
-    const editorHtml = await Bun.file("./editor.html").text();
-
-    // 2. Server-side Markdown rendering for initial preview
-    const initialAst = parseMarkdown(rawMarkdown);
-    const initialHtml = renderMarkdownASTToHTML(initialAst);
-
-    // 3. Escape the rawMarkdown for safe insertion into <textarea>
-    const escapedNoteContent = escapeForTextarea(rawMarkdown);
-    // Also escape the noteName for inserting into the <span> (to avoid injecting HTML)
-    const escapedNoteName = escapeHtml(noteName);
-
-    // 4. Do naive string replacements
-    //    (We replace the <span>, <textarea>, and <div> "preview" contents)
-    let replacedHtml = editorHtml;
-
-    // -- A) Insert the noteName into the <span id="note-name-display">
-    replacedHtml = replacedHtml.replace(
-        '<span id="note-name-display"></span>',
-        `<span id="note-name-display">${escapedNoteName}</span>`
-    );
-
-    // -- B) Insert the rawMarkdown into <textarea id="editor">
-    replacedHtml = replacedHtml.replace(
-        '<textarea id="editor"></textarea>',
-        `<textarea id="editor">${escapedNoteContent}</textarea>`
-    );
-
-    // -- C) Insert the server-rendered HTML into <div id="preview">
-    replacedHtml = replacedHtml.replace(
-        '<div id="preview"></div>',
-        `<div id="preview">${initialHtml}</div>`
-    );
-
-    // -- D) Replace the call to initEditor("NOTE_NAME_PLACEHOLDER", "INITIAL_CONTENT_PLACEHOLDER")
-    //       so the client script receives the same noteName and content
-    //       (We must JSON.stringify them to avoid any special characters breaking the JS string)
-    replacedHtml = replacedHtml.replace(
-        'initEditor("NOTE_NAME_PLACEHOLDER", "INITIAL_CONTENT_PLACEHOLDER");',
-        `initEditor(${JSON.stringify(noteName)}, ${JSON.stringify(rawMarkdown)});`
-    );
-
-    // 5. Return the modified HTML
-    return replacedHtml;
 }

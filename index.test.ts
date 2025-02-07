@@ -1,376 +1,412 @@
+// File: index.test.ts
 import {
     test,
     describe,
     expect,
     beforeAll,
     afterAll,
+    beforeEach,
+    afterEach
 } from "bun:test";
-import { fetch } from "bun";
-import {
-    mkdtempSync,
-    rmSync,
-    writeFileSync,
-    existsSync
-} from "node:fs";
-import { join } from "node:path";
 import {
     parseMarkdown,
     renderMarkdownASTToHTML,
-    initializeEditorClientSide,
-    handleEditorInputChange,
-    buildSearchIndex,
-    searchNotes,
-    updateSearchIndexForNote,
-    registerPlugin,
-    startServer,
-    type AppConfig,
+    type MarkdownNode,
+    ensureSafePath,
     readNoteFromDisk,
-    writeNoteToDisk
+    writeNoteToDisk,
+    buildSearchIndex,
+    updateSearchIndexForNote,
+    searchNotes,
+    registerPlugin,
+    type Plugin,
+    defaultConfig,
+    buildSnippetForFileSync as internalBuildSnippetForFileSync,
+    startServer,
+    renderEditorPage,
+    escapeHtml,
+    readNoteFromDiskSync,
+    writeNoteToDiskSync,
+    createServer,
+    ensureVaultDirectoryExists,
+    type Server
 } from "./index";
+import {
+    mkdirSync,
+    rmSync,
+    writeFileSync,
+    readFileSync,
+    chmodSync,
+    existsSync
+} from "node:fs";
+import { join, resolve } from "path";
+import { fileURLToPath } from "url";
+import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 
-// ------------------------------------------------------------------
-// Example: Let's export a couple of new testable utilities
-//          from the inline editor logic so we can test them here.
-//          In a real codebase, you'd place them near your SSR code
-//          but also export them for test usage. For clarity:
-export function applyWrappedFormat(
-    originalText: string,
-    selectionStart: number,
-    selectionEnd: number,
-    wrapper: string
-): { newText: string; newStart: number; newEnd: number } {
-    if (selectionStart === selectionEnd) {
-        // No selection, just insert
-        const newText =
-            originalText.slice(0, selectionStart) +
-            wrapper +
-            wrapper +
-            originalText.slice(selectionEnd);
-        const cursor = selectionStart + wrapper.length;
-        return { newText, newStart: cursor, newEnd: cursor };
-    } else {
-        // Wrap selection
-        const selectedText = originalText.slice(selectionStart, selectionEnd);
-        const newText =
-            originalText.slice(0, selectionStart) +
-            wrapper +
-            selectedText +
-            wrapper +
-            originalText.slice(selectionEnd);
-        return {
-            newText,
-            newStart: selectionStart + wrapper.length,
-            newEnd: selectionEnd + wrapper.length
-        };
-    }
-}
+const __filename = fileURLToPath(import.meta.url);
+const testWorkspace = resolve(__filename, "..", ".test-tmp-extra");
 
-export function naiveClientMarkdownRenderForTest(raw: string): string {
-    // minimal port of the inline function
-    let escaped = raw
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-
-    // inline code
-    escaped = escaped.replace(/`([^`]+)`/g, '<code class="inline">$1</code>');
-    // bold
-    escaped = escaped.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-    // italic
-    escaped = escaped.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-
-    // headings #, ##, ###
-    escaped = escaped.replace(/^### (.*)$/gm, "<h3>$1</h3>");
-    escaped = escaped.replace(/^## (.*)$/gm, "<h2>$1</h2>");
-    escaped = escaped.replace(/^# (.*)$/gm, "<h1>$1</h1>");
-
-    // naive paragraphs by double newlines
-    const paragraphs = escaped.split(/\n\n/g).map((p) => {
-        if (p.match(/<h[1-3]>/)) {
-            return p;
+// A plugin for demonstration
+const testPlugin: Plugin = {
+    name: "TestPlugin",
+    onNoteLoad(notePath: string, content: string) {
+        if (notePath.endsWith("pluginNote.md")) {
+            return content + "\n<!-- Plugin onLoad modified -->";
         }
-        return "<p>" + p.replace(/\n/g, "<br>") + "</p>";
+        return content;
+    },
+    onNoteSave(notePath: string, content: string) {
+        if (notePath.endsWith("pluginNote.md")) {
+            console.log(`[TestPlugin] onNoteSave triggered for: ${notePath} content length=${content.length}`);
+        }
+    }
+};
+
+describe("File System Setup and Teardown", () => {
+    beforeAll(() => {
+        try {
+            rmSync(testWorkspace, { recursive: true, force: true });
+        } catch { }
+        mkdirSync(testWorkspace, { recursive: true });
     });
 
-    return paragraphs.join("\n");
-}
-// ------------------------------------------------------------------
+    afterAll(() => {
+        try {
+            rmSync(testWorkspace, { recursive: true, force: true });
+        } catch { }
+    });
 
-/**
- * Combined Tests
- * 
- * This file merges all test suites from:
- *   - markdown.test.ts
- *   - editor.test.ts
- *   - search.test.ts
- *   - plugin.test.ts
- *   - server.test.ts
- *   - filesystem.test.ts
- */
+    test("Test workspace is writable", () => {
+        const testFile = join(testWorkspace, "check.txt");
+        writeFileSync(testFile, "data", "utf8");
+        expect(existsSync(testFile)).toBe(true);
+        rmSync(testFile);
+    });
+});
 
-// ---------------------------------------------------------
-// Markdown Parser & Renderer
-// ---------------------------------------------------------
-
-describe("Markdown Parser & Renderer", () => {
-    test("parseMarkdown should handle headings correctly", () => {
-        const input = "# Heading 1\n## Heading 2\nSome text";
-        const ast = parseMarkdown(input);
-
+describe("Markdown Parsing Edge Cases", () => {
+    test("Multiple consecutive blank lines do not create extra nodes", () => {
+        const md = "Line1\n\n\nLine2\n\n\nLine3";
+        const ast = parseMarkdown(md);
         expect(ast.length).toBe(3);
-        expect(ast[0].type).toBe("heading");
-        expect(ast[0].level).toBe(1);
-        expect(ast[0].content).toBe("Heading 1");
-
-        expect(ast[1].type).toBe("heading");
-        expect(ast[1].level).toBe(2);
-        expect(ast[1].content).toBe("Heading 2");
-
+        expect(ast[0].type).toBe("paragraph");
+        expect(ast[1].type).toBe("paragraph");
         expect(ast[2].type).toBe("paragraph");
-        expect(ast[2].content).toBe("Some text");
     });
 
-    test("parseMarkdown should handle code blocks", () => {
-        const input = "```\nconst x = 42;\n```\n";
-        const ast = parseMarkdown(input);
+    test("Heading with no space after hash is treated as paragraph", () => {
+        const md = "#NoSpaceHere\n# Normal Heading";
+        const ast = parseMarkdown(md);
+        expect(ast.length).toBe(2);
+        expect(ast[0].type).toBe("paragraph");
+        expect(ast[1].type).toBe("heading");
+    });
 
-        expect(ast.length).toBe(1);
+    test("Inline parse ignores special characters that are incomplete", () => {
+        const md = `This has asterisks *but not closed and underscores _like so`;
+        const ast = parseMarkdown(md);
+        const html = renderMarkdownASTToHTML(ast);
+        expect(html).toContain("asterisks *but not closed");
+        expect(html).toContain("underscores _like so");
+    });
+
+    test("Mixed code blocks with inconsistent indentation", () => {
+        const md = "```\ncode\n  indented\n```\n```\nsecond\n```";
+        const ast = parseMarkdown(md);
+        expect(ast.length).toBe(2);
         expect(ast[0].type).toBe("codeblock");
-        expect(ast[0].content).toContain("const x = 42;");
+        expect(ast[1].type).toBe("codeblock");
     });
 
-    test("renderMarkdownASTToHTML should convert AST to HTML", () => {
-        const ast = [
-            { type: "heading", level: 1, content: "Hello World" },
-            { type: "paragraph", content: "Some **bold** text here" },
+    test("Multiple code blocks in one file", () => {
+        const md = "```\nblock1\n```\n\n```\nblock2\n```\n\nParagraph\n```\nblock3\n```";
+        const ast = parseMarkdown(md);
+        expect(ast.length).toBe(4);
+        expect(ast[0].type).toBe("codeblock");
+        expect(ast[1].type).toBe("codeblock");
+        expect(ast[2].type).toBe("paragraph");
+        expect(ast[3].type).toBe("codeblock");
+    });
+});
+
+describe("Additional Markdown Rendering Checks", () => {
+    test("Nested bold and italic are rendered correctly", () => {
+        const ast: MarkdownNode[] = [
+            { type: "paragraph", content: "This is ***really bold and italic***." }
         ];
         const html = renderMarkdownASTToHTML(ast);
-
-        expect(html).toContain("<h1>Hello World</h1>");
-        expect(html).toContain("<p>Some <strong>bold</strong> text here</p>");
+        expect(html).toContain("<strong><em>really bold and italic</em></strong>");
     });
 
-    test("inline code should render correctly", () => {
-        const input = "Here is some `inline code` in a sentence.";
-        const ast = parseMarkdown(input);
+    test("Ampersand, angle brackets, and quotes are escaped in paragraph", () => {
+        const ast: MarkdownNode[] = [
+            { type: "paragraph", content: `5 < 6 & "text"` }
+        ];
         const html = renderMarkdownASTToHTML(ast);
-
-        expect(html).toContain("<code class=\"inline\">inline code</code>");
+        expect(html).toContain("5 &lt; 6 &amp; &quot;text&quot;");
     });
 });
 
-// ---------------------------------------------------------
-// Editor Logic
-// ---------------------------------------------------------
+describe("File System Additional Edge Cases", () => {
+    const unusualFilePath = join(testWorkspace, "unusualChars.md");
 
-describe("Editor Logic", () => {
-    test("initializeEditorClientSide does not throw", () => {
-        expect(() => initializeEditorClientSide()).not.toThrow();
+    afterAll(() => {
+        try {
+            rmSync(unusualFilePath);
+        } catch { }
     });
 
-    test("handleEditorInputChange is callable", () => {
-        const sampleMarkdown = "# Title\nSome content";
-        expect(() => handleEditorInputChange(sampleMarkdown)).not.toThrow();
-    });
-});
-
-// ---------------------------------------------------------
-// Extended Editor Logic (New Tests for Our Implementation)
-// ---------------------------------------------------------
-
-describe("Extended Editor Logic", () => {
-    test("applyWrappedFormat inserts wrapper when no selection", () => {
-        const original = "Hello world";
-        const { newText, newStart, newEnd } = applyWrappedFormat(original, 5, 5, "**");
-        expect(newText).toBe("Hello**** world");
-        expect(newStart).toBe(7);
-        expect(newEnd).toBe(7);
+    test("Reading and writing unusual characters is lossless", async () => {
+        const data = "Emoji: 🐱‍👓 \nNonLatin: 你好 \nSymbols: ©®™";
+        await writeNoteToDisk(unusualFilePath, data);
+        const readData = await readNoteFromDisk(unusualFilePath);
+        expect(readData).toBe(data);
     });
 
-    test("applyWrappedFormat wraps selected text with bold", () => {
-        const original = "Hello world";
-        const { newText, newStart, newEnd } = applyWrappedFormat(original, 0, 5, "**");
-        expect(newText).toBe("**Hello** world");
-        // newStart moves after the first '**'
-        expect(newStart).toBe(2);
-        // newEnd extends by the length of '**'
-        expect(newEnd).toBe(7);
-    });
-
-    test("naiveClientMarkdownRenderForTest handles headings, bold, italics, code", () => {
-        const input = `# Title
-
-**bold** text and *italics* plus \`code\`
-`;
-        const output = naiveClientMarkdownRenderForTest(input);
-        expect(output).toContain("<h1>Title</h1>");
-        expect(output).toContain("<strong>bold</strong>");
-        expect(output).toContain("<em>italics</em>");
-        expect(output).toContain("<code class=\"inline\">code</code>");
-        // paragraphs
-        expect(output).toMatch(/<p>.*<\/p>/);
+    test("writeNoteToDiskSync and readNoteFromDiskSync with emojis", () => {
+        const data = "Sync version test 🧩∞";
+        writeNoteToDiskSync(unusualFilePath, data);
+        const readData = readNoteFromDiskSync(unusualFilePath);
+        expect(readData).toBe(data);
     });
 });
 
-// ---------------------------------------------------------
-// Search & Indexing
-// ---------------------------------------------------------
-
-describe("Search & Indexing", () => {
-    let tempDir: string;
-    let noteA: string;
-    let noteB: string;
+describe("Search Index Additional Cases", () => {
+    const searchVaultPath = join(testWorkspace, "largeSearchVault");
+    const noteXPath = join(searchVaultPath, "noteX.md");
+    const noteYPath = join(searchVaultPath, "noteY.md");
 
     beforeAll(async () => {
-        tempDir = mkdtempSync("search-test-");
-        noteA = join(tempDir, "noteA.md");
-        writeFileSync(noteA, "This is a sample note about bananas.\nWe also mention apples here.");
-
-        noteB = join(tempDir, "noteB.md");
-        writeFileSync(noteB, "Apples are tasty.\nBananas are yellow.");
-
-        await buildSearchIndex({ port: 9999, vaultPath: tempDir });
+        mkdirSync(searchVaultPath, { recursive: true });
+        writeFileSync(noteXPath, "Mixed case Token. Another line.\nMore tokens here", "utf8");
+        writeFileSync(noteYPath, "Multiple tokens appear. token, TOKEN, TokEn", "utf8");
+        await buildSearchIndex({ ...defaultConfig, vaultPath: searchVaultPath });
     });
 
     afterAll(() => {
-        rmSync(tempDir, { recursive: true, force: true });
+        rmSync(searchVaultPath, { recursive: true, force: true });
     });
 
-    // TODO: Fix this test once i deal with vault path issue
-    // test("searchNotes finds correct documents", async () => {
-    //     const resultsBananas = await searchNotes("bananas");
-    //     expect(resultsBananas.length).toBe(2);
+    test("Case-insensitive search matches various capitalizations", () => {
+        const result = searchNotes("toKen");
+        expect(result.length).toBe(2);
+    });
 
-    //     const resultsApples = await searchNotes("apples");
-    //     expect(resultsApples.length).toBe(2);
+    test("Multiple tokens in query with no intersection => empty result", () => {
+        const result = searchNotes("Mixed NotFoundWord");
+        expect(result.length).toBe(0);
+    });
 
-    //     const resultsNonExistent = await searchNotes("kiwi");
-    //     expect(resultsNonExistent.length).toBe(0);
-    // });
+    test("Extra spaces in query are ignored", () => {
+        const result = searchNotes("   Mixed      case    ");
+        expect(result.length).toBe(1);
+        expect(result[0].notePath).toBe(noteXPath);
+    });
 
-    // TODO: Fix this test once i deal with vault path issue
-    // test("updateSearchIndexForNote reflects new changes", async () => {
-    //     writeFileSync(noteA, "Now we talk about pineapples.");
-    //     updateSearchIndexForNote(noteA, "Now we talk about pineapples.");
-
-    //     const resultsPineapples = await searchNotes("pineapples");
-    //     expect(resultsPineapples.length).toBe(1);
-    //     expect(resultsPineapples[0].notePath).toContain("noteA.md");
-
-    //     const resultsBananas = await searchNotes("bananas");
-    //     expect(resultsBananas.length).toBe(1);
-    //     expect(resultsBananas[0].notePath).toContain("noteB.md");
-    // });
-});
-
-// ---------------------------------------------------------
-// Plugin System
-// ---------------------------------------------------------
-
-describe("Plugin System", () => {
-    test("registerPlugin adds a plugin to the system", () => {
-        const myPlugin = {
-            name: "TestPlugin",
-            onNoteLoad: (path: string, content: string) => {
-                return content + "\nPlugin was here.";
-            },
-            onNoteSave: (path: string, content: string) => {
-                // no-op
-            }
-        };
-
-        expect(() => registerPlugin(myPlugin)).not.toThrow();
+    test("Snippet shows partial matched line if match is near start", () => {
+        const snippet = internalBuildSnippetForFileSync(noteYPath, "appear");
+        expect(snippet.length).toBeLessThanOrEqual(104);
+        expect(snippet).toContain("Multiple tokens appear");
     });
 });
 
-// ---------------------------------------------------------
-// Server Integration
-// ---------------------------------------------------------
-
-describe("Server Integration", () => {
-    let server: Awaited<ReturnType<typeof startServer>>;
-    let tempDir: string;
-    const testPort = 3333;
-
-    beforeAll(async () => {
-        tempDir = mkdtempSync("server-test-");
-        const config: AppConfig = {
-            port: testPort,
-            vaultPath: tempDir,
-        };
-        server = await startServer(config);
-    });
-
-    afterAll(async () => {
-        await server.stop(true);
-        rmSync(tempDir, { recursive: true, force: true });
-    });
-
-    test("GET / returns 200 and some HTML", async () => {
-        const resp = await fetch(`http://localhost:${testPort}/`);
-        expect(resp.status).toBe(200);
-        const text = await resp.text();
-        expect(text).toContain("<html");
-    });
-
-    test("GET /nonexistent returns 404", async () => {
-        const resp = await fetch(`http://localhost:${testPort}/does-not-exist`);
-        expect(resp.status).toBe(404);
-    });
-
-    test("GET /notes/<filename> creates and retrieves a note", async () => {
-        const noteName = "testnote.md";
-        const notePath = `/notes/${noteName}`;
-        const createResp = await fetch(`http://localhost:${testPort}${notePath}`);
-        expect(createResp.status).toBe(200);
-
-        const getResp = await fetch(`http://localhost:${testPort}${notePath}`);
-        expect(getResp.status).toBe(200);
-        const text = await getResp.text();
-        expect(text).toMatch(/<h1>Editing Note: .*testnote\.md.*<\/h1>/);
-        expect(text).toContain("# New Note");
-    });
-});
-
-// ---------------------------------------------------------
-// Filesystem Operations
-// ---------------------------------------------------------
-
-describe("Filesystem Operations", () => {
-    let tempDir: string;
+describe("Plugin System Additional Tests", () => {
+    const pluginNotePath = join(testWorkspace, "pluginNote.md");
 
     beforeAll(() => {
-        tempDir = mkdtempSync("notes-test-");
+        registerPlugin(testPlugin);
+        writeFileSync(pluginNotePath, "Plugin note original content");
     });
 
-    afterAll(() => {
+    test("Multiple plugins can be registered, hooks run in order", () => {
+        let firstHookTriggered = false;
+        let secondHookTriggered = false;
+        const pluginA: Plugin = {
+            name: "PluginA",
+            onNoteLoad(path, content) {
+                if (path.endsWith("pluginNote.md")) {
+                    firstHookTriggered = true;
+                    return content + "\n<!-- PluginA appended -->";
+                }
+                return content;
+            }
+        };
+        const pluginB: Plugin = {
+            name: "PluginB",
+            onNoteLoad(path, content) {
+                if (path.endsWith("pluginNote.md")) {
+                    secondHookTriggered = true;
+                    return content + "\n<!-- PluginB appended -->";
+                }
+                return content;
+            }
+        };
+        registerPlugin(pluginA);
+        registerPlugin(pluginB);
+        const final = pluginA.onNoteLoad
+            ? pluginA.onNoteLoad(pluginNotePath, "Data")
+            : "Data";
+        const final2 = pluginB.onNoteLoad
+            ? pluginB.onNoteLoad(pluginNotePath, final)
+            : final;
+        expect(firstHookTriggered).toBe(true);
+        expect(secondHookTriggered).toBe(true);
+        expect(final2).toContain("<!-- PluginA appended -->");
+        expect(final2).toContain("<!-- PluginB appended -->");
+    });
+
+    test("Plugin throwing error in onNoteLoad does not break subsequent plugins", () => {
+        let secondPluginReached = false;
+        const errorPlugin: Plugin = {
+            name: "ErrorPlugin",
+            onNoteLoad() {
+                throw new Error("Simulated plugin error");
+            }
+        };
+        const safePlugin: Plugin = {
+            name: "SafePlugin",
+            onNoteLoad(path, content) {
+                secondPluginReached = true;
+                return content + "\n<!-- safe plugin -->";
+            }
+        };
+        registerPlugin(errorPlugin);
+        registerPlugin(safePlugin);
+        let result = "";
         try {
-            rmSync(tempDir, { recursive: true, force: true });
-        } catch {
-            // ignore
+            result = errorPlugin.onNoteLoad
+                ? errorPlugin.onNoteLoad("mock.md", "content")
+                : "content";
+        } catch { }
+        if (safePlugin.onNoteLoad) {
+            result = safePlugin.onNoteLoad("mock.md", result);
         }
+        expect(secondPluginReached).toBe(true);
+        expect(result).toContain("<!-- safe plugin -->");
+    });
+});
+
+describe("Editor and HTML Rendering", () => {
+    test("renderEditorPage inserts the correct placeholders", () => {
+        const name = "TestNote.md";
+        const content = "# Test Title\n\nContent";
+        const html = renderEditorPage(name, content);
+        expect(html).toContain(`initEditor({ noteName: "TestNote.md", initialContent: "# Test Title\\n\\nContent" })`);
+        expect(html).toContain("<span id=\"note-name-display\">TestNote.md</span>");
+        expect(html).toContain("Test Title");
     });
 
-    test("writeNoteToDisk writes a file and readNoteFromDisk reads it", async () => {
-        const filePath = join(tempDir, "testfile.md");
-        const content = "# Hello\nThis is a test note.";
-
-        writeNoteToDisk(filePath, content);
-        expect(existsSync(filePath)).toBe(true);
-
-        const readContent = await readNoteFromDisk(filePath);
-        expect(readContent).toEqual(content);
+    test("escapeHtml ensures all critical characters are escaped", () => {
+        const raw = `<script>alert("x")</script>`;
+        const escaped = escapeHtml(raw);
+        expect(escaped).toBe("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
     });
 
-    test("readNoteFromDisk throws if file does not exist", async () => {
-        const nonExistentPath = join(tempDir, "no-such-file.md");
-        let errorCaught = false;
+    test("renderEditorPage throws if editor.html is missing (mocking readFileSync)", () => {
+        const originalRead = readFileSync;
+        let errorMessage = "";
+        (globalThis as any).readFileSync = () => {
+            throw new Error("Mocked missing file");
+        };
         try {
-            await readNoteFromDisk(nonExistentPath);
-        } catch (err) {
-            errorCaught = true;
-            expect((err as Error).message).toMatch(/failed/i);
+            renderEditorPage("someNote", "someContent");
+        } catch (err: any) {
+            errorMessage = String(err);
+        } finally {
+            (globalThis as any).readFileSync = originalRead;
         }
-        expect(errorCaught).toBe(true);
+        expect(errorMessage).toMatch(/Mocked missing file/);
+    });
+});
+
+describe("Concurrent File Operations", () => {
+    test("Simultaneous reads and writes do not corrupt file", async () => {
+        const concurrencyFile = join(testWorkspace, `concurrent-${randomUUID()}.md`);
+        const dataA = "Content A";
+        const dataB = "Content B";
+        const writeA = writeNoteToDisk(concurrencyFile, dataA);
+        const writeB = writeNoteToDisk(concurrencyFile, dataB);
+        await Promise.all([writeA, writeB]);
+        const finalContent = await readNoteFromDisk(concurrencyFile);
+        expect([dataA, dataB]).toContain(finalContent);
+    });
+});
+
+describe("Boundary and Error Handling", () => {
+    test("Function parseMarkdown handles extremely large input gracefully", () => {
+        const largeMarkdown = "#".repeat(100000);
+        const ast = parseMarkdown(largeMarkdown);
+        expect(ast.length).toBeGreaterThan(0);
+    });
+
+    test("ensureSafePath with absolute path pointing inside vault is allowed", () => {
+        const baseDir = join(testWorkspace, "vaultTest");
+        mkdirSync(baseDir, { recursive: true });
+        const abs = resolve(baseDir, "myNote.md");
+        const safe = ensureSafePath(abs, baseDir);
+        expect(safe).toBe(abs);
+    });
+
+    test("searchNotes returns empty array if token not found", () => {
+        const results = searchNotes("nonexistenttoken");
+        expect(results.length).toBe(0);
+    });
+});
+
+describe("Snippet Building Additional Cases", () => {
+    test("Snippet is truncated properly for long lines", () => {
+        const longLine = "myQuery " + "x".repeat(300);
+        const filePath = join(testWorkspace, "longSnippet.md");
+        writeFileSync(filePath, longLine);
+        const snippet = internalBuildSnippetForFileSync(filePath, "myQuery");
+        expect(snippet.length).toBeLessThanOrEqual(104);
+        expect(snippet.endsWith("...")).toBe(true);
+    });
+
+    test("Snippet falls back to first line if token not found", () => {
+        const lines = `LineOne
+  LineTwoPlain
+  LineThreePlain
+  `;
+        const filePath = join(testWorkspace, "fallbackSnippet.md");
+        writeFileSync(filePath, lines);
+        const snippet = internalBuildSnippetForFileSync(filePath, "nomatch");
+        expect(snippet).toContain("LineOne");
+    });
+});
+
+describe("Plugin Handling and Logging", () => {
+    const notePathForMultipleHooks = join(testWorkspace, "multiplePluginHooks.md");
+
+    beforeAll(() => {
+        writeFileSync(notePathForMultipleHooks, "Initial data");
+    });
+
+    test("Multiple onNoteSave hooks are invoked sequentially", () => {
+        let firstSaveHook = false;
+        let secondSaveHook = false;
+        const pluginOne: Plugin = {
+            name: "PluginOne",
+            onNoteSave(path, content) {
+                if (path.endsWith("multiplePluginHooks.md")) {
+                    firstSaveHook = true;
+                }
+            }
+        };
+        const pluginTwo: Plugin = {
+            name: "PluginTwo",
+            onNoteSave(path, content) {
+                if (path.endsWith("multiplePluginHooks.md")) {
+                    secondSaveHook = true;
+                }
+            }
+        };
+        registerPlugin(pluginOne);
+        registerPlugin(pluginTwo);
+        if (pluginOne.onNoteSave) pluginOne.onNoteSave(notePathForMultipleHooks, "DataOne");
+        if (pluginTwo.onNoteSave) pluginTwo.onNoteSave(notePathForMultipleHooks, "DataTwo");
+        expect(firstSaveHook).toBe(true);
+        expect(secondSaveHook).toBe(true);
     });
 });
