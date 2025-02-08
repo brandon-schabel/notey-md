@@ -10,6 +10,8 @@
   },
   "scripts": {
     "test": "bun test",
-    "build": "echo 'No build step yet, this is pure TypeScript in Bun.'"
+    "build": "echo 'No build step yet, this is pure TypeScript in Bun.'",
+    "test:integration": "bun test tests/integration/common-mark-0-31-2-spec.test.ts",
+    "test:unit": "bun test src/index.test.ts"
   }
 }
