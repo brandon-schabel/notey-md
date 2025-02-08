@@ -1,14 +1,7 @@
-/* ===========================
-   editor.test.ts
-   =========================== */
-import { initEditor, } from "./editor";
 
-/* ===========================
-   editor.edge.test.ts
-   =========================== */
+import { initEditor, } from "./editor";
 import { test, describe, expect, beforeEach, afterEach, mock } from "bun:test";
 import {
-    parseMarkdown,
     createLineDiv,
     updateLine,
     scheduleSave,
@@ -32,63 +25,6 @@ interface EditorState {
     saveTimeout: number | null;
 }
 
-describe("Edge Case Tests for parseMarkdown", () => {
-    test("Escapes HTML special characters and wraps in paragraph", () => {
-        const input = "a & b < c > d";
-        const expected = "<p>a &amp; b &lt; c &gt; d</p>";
-        expect(parseMarkdown(input)).toBe(expected);
-    });
-
-    test("Converts code blocks", () => {
-        const input = "```console.log('hello');```";
-        const expected = "<p><pre><code>console.log('hello');</code></pre></p>";
-        expect(parseMarkdown(input)).toBe(expected);
-    });
-
-    test("Converts inline code", () => {
-        const input = "This is `inline` code";
-        const expected = "<p>This is <code class=\"inline\">inline</code> code</p>";
-        expect(parseMarkdown(input)).toBe(expected);
-    });
-
-    test("Converts bold text", () => {
-        const input = "This is **bold** text";
-        const expected = "<p>This is <strong>bold</strong> text</p>";
-        expect(parseMarkdown(input)).toBe(expected);
-    });
-
-    test("Converts italic text", () => {
-        const input = "This is *italic* text";
-        const expected = "<p>This is <em>italic</em> text</p>";
-        expect(parseMarkdown(input)).toBe(expected);
-    });
-
-    test("Converts math display checkbox with lowercase x", () => {
-        const input = "- $begin:math:display$ x $end:math:display$ Math content";
-        const expected = "<p><ul><li><label><input type=\"checkbox\" checked disabled> Math content</label></li></ul></p>";
-        expect(parseMarkdown(input)).toBe(expected);
-    });
-
-    test("Converts math display checkbox with uppercase X", () => {
-        const input = "* $begin:math:display$ X $end:math:display$ Another math";
-        const expected = "<p><ul><li><label><input type=\"checkbox\" checked disabled> Another math</label></li></ul></p>";
-        expect(parseMarkdown(input)).toBe(expected);
-    });
-
-    test("Converts bullet lists", () => {
-        const input = "- Item one\n- Item two";
-        const expected = "<p><ul><li>Item one</li></ul>\n<ul><li>Item two</li></ul></p>";
-        expect(parseMarkdown(input)).toBe(expected);
-    });
-
-    test("Converts headers", () => {
-        const input = "# Header1\n## Header2\n### Header3\n#### Header4\n##### Header5\n###### Header6";
-        const expected =
-            "<p><h1>Header1</h1>\n<h2>Header2</h2>\n<h3>Header3</h3>\n<h4>Header4</h4>\n<h5>Header5</h5>\n<h6>Header6</h6></p>";
-        expect(parseMarkdown(input)).toBe(expected);
-    });
-});
-
 describe("Edge Case Tests for createLineDiv", () => {
     test("Creates an active line div with contentEditable true", () => {
         const lineContent = "Active line";
@@ -104,7 +40,6 @@ describe("Edge Case Tests for createLineDiv", () => {
         const div = createLineDiv(lineContent, 1, 0);
         expect(div.dataset.lineIndex).toBe("1");
         expect(div.contentEditable).toBe("false");
-        expect(div.innerHTML).toBe(parseMarkdown(lineContent));
     });
 });
 
@@ -148,7 +83,7 @@ describe("Edge Case Tests for scheduleSave", () => {
         };
         let called = false;
         const onSave = () => { called = true; };
-        
+
         // Create a proper mock that includes __promisify__
         const mockSetTimeout = Object.assign(
             (callback: TimerHandler, delay?: number): number => {
@@ -157,10 +92,10 @@ describe("Edge Case Tests for scheduleSave", () => {
             },
             { __promisify__: () => Promise.resolve() }
         );
-        
+
         const originalSetTimeout = window.setTimeout;
         window.setTimeout = mockSetTimeout;
-        
+
         scheduleSave(state, onSave);
         expect(called).toBe(true);
         window.setTimeout = originalSetTimeout;
@@ -289,15 +224,15 @@ describe("Edge Case Tests for handleEditorClick", () => {
 
     test("Does nothing if clicked element is not within a line", () => {
         const container = document.createElement("div");
-        const event = new MouseEvent("click", { 
+        const event = new MouseEvent("click", {
             bubbles: true,
-            cancelable: true 
+            cancelable: true
         });
-        
+
         // Create a proper target element that's not within a line
         const targetEl = document.createElement("div");
         Object.defineProperty(event, "target", { value: targetEl });
-        
+
         handleEditorClick(event, container, state);
         expect(state.activeLine).toBeNull();
     });
@@ -436,16 +371,16 @@ describe("Edge Case Tests for handleEditorRoute", () => {
         const mockBunFile = (path: string | URL) => ({
             text: () => Promise.resolve("File content for " + path)
         });
-        
+
         const originalBunFile = Bun.file;
         // @ts-ignore - Ignore type mismatch for test mock
         Bun.file = mockBunFile;
-        
+
         const req = new Request("http://localhost/editor/TestNote");
         const response = await handleEditorRoute(req);
         const text = await response.text();
         expect(text).toContain("File content for notes/TestNote.md");
-        
+
         Bun.file = originalBunFile;
     });
 
@@ -453,17 +388,17 @@ describe("Edge Case Tests for handleEditorRoute", () => {
         const mockBunFile = (path: string | URL) => {
             throw new Error("File not found");
         };
-        
+
         const originalBunFile = Bun.file;
         // @ts-ignore - Ignore type mismatch for test mock
         Bun.file = mockBunFile;
-        
+
         const req = new Request("http://localhost/editor/NonExistentNote");
         const response = await handleEditorRoute(req);
         const text = await response.text();
         expect(text).toContain("Editing Note: <span id=\"note-name-display\"></span>");
         expect(text).not.toContain("File content");
-        
+
         Bun.file = originalBunFile;
     });
 });
@@ -507,11 +442,11 @@ describe("Editor Functionality", () => {
     beforeEach(() => {
         createMockDOM();
         initEditor({ noteName: "Test Note", initialContent: "Initial line 1\nInitial line 2" });
-        
+
         // Create a proper fetch mock
         const mockFetch = (input: string | URL | Request, init?: RequestInit) =>
             Promise.resolve(new Response(null, { status: 200 }));
-        
+
         // @ts-ignore - Ignore type mismatch for test mock
         global.fetch = mockFetch;
     });
@@ -605,7 +540,7 @@ describe("Editor Functionality", () => {
     test("Clicking copy button copies content", async () => {
         const copyButton = document.getElementById("copyBtn") as HTMLButtonElement;
         const mockWriteText = mock(() => Promise.resolve());
-        
+
         // Create a proper mock that tracks calls
         const calls: string[] = [];
         const clipboardMock = {
@@ -614,15 +549,15 @@ describe("Editor Functionality", () => {
                 return Promise.resolve();
             }
         };
-        
+
         Object.defineProperty(navigator, "clipboard", {
             value: clipboardMock,
             writable: true,
         });
-        
+
         copyButton.click();
         await Promise.resolve();
-        
+
         expect(calls[0]).toBe("Initial line 1\nInitial line 2");
     });
 

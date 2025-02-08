@@ -26,10 +26,8 @@ export const defaultConfig: AppConfig = {
             : resolve(workspace, "notes")
 };
 
-// Create a type for the server
 export type Server = ReturnType<typeof Bun.serve>;
 
-// Separate server creation from starting it
 export function createServer(config: AppConfig): Server {
     const server = Bun.serve({
         port: config.port,
@@ -48,16 +46,13 @@ export function createServer(config: AppConfig): Server {
             }
         }
     });
-
     return server;
 }
 
-// Modify startServer to use createServer
 export async function startServer(config: AppConfig): Promise<Server> {
     await ensureVaultDirectoryExists(config.vaultPath);
     await buildSearchIndex(config);
     registerPlugin(examplePlugin);
-
     const server = createServer(config);
     console.log(`Server running at http://localhost:${config.port}`);
     return server;
@@ -83,6 +78,16 @@ async function handleGetRequest(request: Request, config: AppConfig): Promise<Re
         });
     }
 
+    // New route to serve the markdownParser module
+    if (path === "/mardown-parser.js" || path === "/notes/markdown-parse.js") {
+        const tsContent = await Bun.file("./markdownParser.ts").text();
+        const transpiler = new Bun.Transpiler({ loader: "ts" });
+        const jsContent = await transpiler.transform(tsContent);
+        return new Response(jsContent, {
+            headers: { "Content-Type": "application/javascript" }
+        });
+    }
+
     if (path.startsWith("/notes/")) {
         const noteName = path.replace("/notes/", "").trim();
         if (!noteName) {
@@ -99,14 +104,11 @@ async function handleGetRequest(request: Request, config: AppConfig): Promise<Re
                 rawMarkdown = await readNoteFromDisk(safePath);
             }
             rawMarkdown = fireOnNoteLoadPlugins(safePath, rawMarkdown);
-
             if (url.searchParams.has("copy")) {
-                // Return plain text
                 return new Response(rawMarkdown, {
                     headers: { "Content-Type": "text/plain" }
                 });
             }
-            // Return the HTML editor
             return new Response(renderEditorPage(noteName, rawMarkdown), {
                 headers: { "Content-Type": "text/html" }
             });
@@ -135,14 +137,11 @@ async function handlePostRequest(request: Request, config: AppConfig): Promise<R
         try {
             const body = await request.json();
             const { filename, content } = body || {};
-
             if (typeof filename !== "string" || typeof content !== "string") {
                 return new Response("Invalid request body.", { status: 400 });
             }
             const safePath = ensureSafePath(filename, config.vaultPath);
-            // In index.ts inside the POST "/notes/save" block
             await writeNoteToDisk(safePath, content);
-
             fireOnNoteSavePlugins(safePath, content);
             updateSearchIndexForNote(safePath, content);
             return new Response("Note saved successfully.", { status: 200 });
@@ -267,27 +266,21 @@ function renderHomePageHTML(config: AppConfig): string {
   `;
 }
 
-// In renderEditorPage we now use the globally overridable readFileSync.
-// This lets our tests (which mock globalThis.readFileSync) work correctly.
 export function renderEditorPage(noteName: string, rawMarkdown: string): string {
     const readFile =
         (typeof (globalThis as any).readFileSync === "function"
             ? (globalThis as any).readFileSync
             : nodeReadFileSync) as typeof nodeReadFileSync;
     const editorHtml = readFile(resolve(workspace, "editor.html"), { encoding: "utf8" });
-
     const ast = parseMarkdown(rawMarkdown);
     let rendered = renderMarkdownASTToHTML(ast);
-
     if (ast.length === 0) {
         rendered = "";
     }
-
     let replaced = editorHtml
         .replace("PLACEHOLDER_NOTE_NAME", JSON.stringify(noteName))
         .replace("PLACEHOLDER_CONTENT", JSON.stringify(rawMarkdown))
         .replace('<div id="preview"></div>', `<div id="preview">${rendered}</div>`);
-
     return replaced;
 }
 
@@ -310,14 +303,11 @@ export interface MarkdownNode {
 export function parseMarkdown(markdownContent: string): MarkdownNode[] {
     const lines = markdownContent.split(/\r?\n/);
     const ast: MarkdownNode[] = [];
-
     let inCodeBlock = false;
     let codeBuffer: string[] = [];
-
     for (let i = 0; i < lines.length; i++) {
         const rawLine = lines[i];
         const trimmedLeft = rawLine.trimStart();
-
         if (trimmedLeft.startsWith("```")) {
             if (!inCodeBlock) {
                 inCodeBlock = true;
@@ -328,12 +318,10 @@ export function parseMarkdown(markdownContent: string): MarkdownNode[] {
             }
             continue;
         }
-
         if (inCodeBlock) {
             codeBuffer.push(rawLine);
             continue;
         }
-
         const headingMatch = /^[#]{1,6}\s+(.*)$/.exec(trimmedLeft);
         if (headingMatch) {
             const hashCount = (trimmedLeft.match(/^#+/) || [""])[0].length;
@@ -344,7 +332,6 @@ export function parseMarkdown(markdownContent: string): MarkdownNode[] {
             });
             continue;
         }
-
         const checkboxMatch = /^[*-]\s+\$begin:math:display\$\s*([ xX])\s*\$end:math:display\$\s+(.*)$/.exec(trimmedLeft);
         if (checkboxMatch) {
             const isChecked = checkboxMatch[1].toLowerCase() === "x";
@@ -355,7 +342,6 @@ export function parseMarkdown(markdownContent: string): MarkdownNode[] {
             });
             continue;
         }
-
         const listItemMatch = /^[*-]\s+(.*)$/.exec(trimmedLeft);
         if (listItemMatch) {
             ast.push({
@@ -364,7 +350,6 @@ export function parseMarkdown(markdownContent: string): MarkdownNode[] {
             });
             continue;
         }
-
         if (trimmedLeft.length > 0) {
             ast.push({
                 type: "paragraph",
@@ -372,20 +357,17 @@ export function parseMarkdown(markdownContent: string): MarkdownNode[] {
             });
         }
     }
-
     if (inCodeBlock && codeBuffer.length) {
         ast.push({
             type: "codeblock",
             content: codeBuffer.join("\n")
         });
     }
-
     return ast;
 }
 
 export function renderMarkdownASTToHTML(ast: MarkdownNode[]): string {
     const lines: string[] = [];
-
     for (const node of ast) {
         if (node.type === "heading" && node.level && node.content) {
             lines.push(`<h${node.level}>${inlineParse(escapeHtml(node.content))}</h${node.level}>`);
@@ -397,7 +379,6 @@ export function renderMarkdownASTToHTML(ast: MarkdownNode[]): string {
             lines.push(`<ul><li>${inlineParse(escapeHtml(node.content))}</li></ul>`);
         } else if (node.type === "checkbox" && node.content) {
             const isChecked = node.content.startsWith("[x]");
-            // The regex below is kept minimal for this example.
             const afterBracket = node.content.replace(/^$begin:math:display$x$end:math:display$\s+|^$begin:math:display$\\s$end:math:display$\s+/, "");
             lines.push(`
 <ul>
@@ -411,7 +392,6 @@ export function renderMarkdownASTToHTML(ast: MarkdownNode[]): string {
 			`);
         }
     }
-
     return lines.join("\n");
 }
 
@@ -474,7 +454,6 @@ export async function ensureVaultDirectoryExists(vaultPath: string): Promise<voi
     }
 }
 
-// SEARCH
 interface SearchResult {
     notePath: string;
     snippet: string;
@@ -538,7 +517,6 @@ function listAllMarkdownFiles(dirPath: string): string[] {
 export function searchNotes(query: string): SearchResult[] {
     const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (!tokens.length) return [];
-
     let candidatePaths: Set<string> | null = null;
     for (const t of tokens) {
         const matchedPaths = indexMap.get(t) || new Set();
@@ -555,7 +533,6 @@ export function searchNotes(query: string): SearchResult[] {
             }
         }
     }
-
     if (!candidatePaths || !candidatePaths.size) return [];
     return [...candidatePaths].map((notePath) => {
         const snippet = buildSnippetForFileSync(notePath, query);
@@ -568,7 +545,6 @@ export function buildSnippetForFileSync(filePath: string, query: string): string
         const content = readNoteFromDiskSync(filePath);
         const lines = content.split(/\r?\n/);
         const lower = query.toLowerCase();
-
         for (const line of lines) {
             if (line.toLowerCase().includes(lower)) {
                 return line.slice(0, 100) + "...";
@@ -580,7 +556,6 @@ export function buildSnippetForFileSync(filePath: string, query: string): string
     }
 }
 
-// PLUGIN SYSTEM
 export interface Plugin {
     name: string;
     onNoteLoad?: (path: string, content: string) => string;
@@ -603,7 +578,6 @@ function fireOnNoteLoadPlugins(path: string, content: string): string {
                     output = res;
                 }
             } catch (err) {
-                // log error if needed; continue to next plugin
             }
         }
     }
@@ -616,7 +590,6 @@ function fireOnNoteSavePlugins(path: string, content: string): void {
             try {
                 plg.onNoteSave(path, content);
             } catch (err) {
-                // log error and continue
             }
         }
     }
@@ -636,7 +609,6 @@ const examplePlugin: Plugin = {
     }
 };
 
-// IMPORTANT: Only start the server if not in test mode
 if (import.meta.main && process.env.NODE_ENV !== "test") {
     (async () => {
         try {

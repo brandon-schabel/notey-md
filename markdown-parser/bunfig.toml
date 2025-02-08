@@ -1,0 +1,8 @@
+[test]
+# You can enable coverage by uncommenting:
+# coverage = true
+# coverageReporter = ["text"]
+# coverageDir = "coverage"
+
+# If you need a preload script for global DOM or setup, specify below:
+# preload = ["./tests/setup.ts"]

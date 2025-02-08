@@ -4,7 +4,8 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "dev": "bun --watch index.ts"
+    "dev": "bun --watch index.ts",
+    "test": "bun test"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^17.0.0",

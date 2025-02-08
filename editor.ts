@@ -1,6 +1,4 @@
-/* ===========================
-   editor.ts
-   =========================== */
+import { parseMarkdown } from "./markdown-parser";
 
 export interface EditorOptions {
     noteName: string;
@@ -13,35 +11,6 @@ export interface EditorState {
     activeLine: number | null;
     isSaving: boolean;
     saveTimeout: number | null;
-}
-
-export function parseMarkdown(markdownText: string): string {
-    let out = markdownText
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-    out = out.replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${code}</code></pre>`);
-    out = out.replace(/`([^`]+)`/g, (_, c) => `<code class="inline">${c}</code>`);
-    out = out.replace(/\*\*(.*?)\*\*/g, (_, b) => `<strong>${b}</strong>`);
-    out = out.replace(/\*(.*?)\*/g, (_, i) => `<em>${i}</em>`);
-    out = out.replace(
-        /^[-*]\s+\$begin:math:display\$\s*([xX])\s*\$end:math:display\$\s+(.*)$/gm,
-        (_, check, text) => {
-            const checked = check.toLowerCase() === "x" ? "checked" : "";
-            return `<ul><li><label><input type="checkbox" ${checked} disabled> ${text}</label></li></ul>`;
-        }
-    );
-    out = out.replace(/^[-*]\s+(.*)$/gm, `<ul><li>$1</li></ul>`);
-    out = out.replace(/^###### (.*)$/gm, `<h6>$1</h6>`);
-    out = out.replace(/^##### (.*)$/gm, `<h5>$1</h5>`);
-    out = out.replace(/^#### (.*)$/gm, `<h4>$1</h4>`);
-    out = out.replace(/^### (.*)$/gm, `<h3>$1</h3>`);
-    out = out.replace(/^## (.*)$/gm, `<h2>$1</h2>`);
-    out = out.replace(/^# (.*)$/gm, `<h1>$1</h1>`);
-    return out
-        .split(/\n\s*\n/g)
-        .map((p) => `<p>${p}</p>`)
-        .join("\n");
 }
 
 export function createLineDiv(
@@ -61,22 +30,6 @@ export function createLineDiv(
     return lineDiv;
 }
 
-function renderHybridEditor(editorContainer: HTMLElement, state: EditorState): void {
-    editorContainer.innerHTML = "";
-    state.lines.forEach((line, index) => {
-        const lineElement = createLineDiv(line, index, state.activeLine);
-        editorContainer.appendChild(lineElement);
-    });
-    if (state.activeLine !== null) {
-        const activeElement = editorContainer.querySelector(
-            `[data-line-index="${state.activeLine}"]`
-        ) as HTMLElement;
-        if (activeElement) {
-            activeElement.focus();
-        }
-    }
-}
-
 export function updateLine(state: EditorState, index: number, newText: string): void {
     state.lines[index] = newText;
 }
@@ -93,8 +46,6 @@ async function doSave(state: EditorState, statusMessage: HTMLElement): Promise<v
     if (state.isSaving) return;
     state.isSaving = true;
     const content = state.lines.join("\n");
-
-
     try {
         await fetch("/notes/save", {
             method: "POST",
@@ -106,7 +57,6 @@ async function doSave(state: EditorState, statusMessage: HTMLElement): Promise<v
             statusMessage.textContent = "";
         }, 3000);
     } catch (err) {
-        console.error("Save error:", err);
         statusMessage.textContent = "Save failed!";
     } finally {
         state.isSaving = false;
@@ -142,17 +92,14 @@ export function insertListItemAtActiveLine(state: EditorState): void {
 
 function copyAllContent(state: EditorState, statusMessage: HTMLElement): void {
     const joined = state.lines.join("\n");
-    navigator.clipboard.writeText(joined)
-        .then(() => {
-            statusMessage.textContent = "Copied entire note!";
-            setTimeout(() => {
-                statusMessage.textContent = "";
-            }, 2000);
-        })
-        .catch((error) => {
-            console.error("Copy error:", error);
-            statusMessage.textContent = "Copy failed!";
-        });
+    navigator.clipboard.writeText(joined).then(() => {
+        statusMessage.textContent = "Copied entire note!";
+        setTimeout(() => {
+            statusMessage.textContent = "";
+        }, 2000);
+    }).catch(() => {
+        statusMessage.textContent = "Copy failed!";
+    });
 }
 
 export function getCaretRangeFromPoint(x: number, y: number): Range | null {
@@ -198,19 +145,14 @@ export function handleEditorClick(
     const lineDiv = target.closest("[data-line-index]") as HTMLElement | null;
     if (!lineDiv) return;
     const clickedIndex = parseInt(lineDiv.dataset.lineIndex!, 10);
-
     const caretRange = getCaretRangeFromPoint(event.clientX, event.clientY);
     const caretOffset = caretRange ? caretRange.startOffset : 0;
-
     if (state.activeLine === clickedIndex) {
         const activeElement = lineDiv;
         activeElement.focus();
         const selection = window.getSelection();
         const range = document.createRange();
-        if (
-            activeElement.firstChild &&
-            activeElement.firstChild.nodeType === Node.TEXT_NODE
-        ) {
+        if (activeElement.firstChild && activeElement.firstChild.nodeType === Node.TEXT_NODE) {
             const textLength = activeElement.firstChild.textContent?.length || 0;
             range.setStart(activeElement.firstChild, Math.min(caretOffset, textLength));
         } else {
@@ -229,10 +171,7 @@ export function handleEditorClick(
             activeElement.focus();
             const selection = window.getSelection();
             const range = document.createRange();
-            if (
-                activeElement.firstChild &&
-                activeElement.firstChild.nodeType === Node.TEXT_NODE
-            ) {
+            if (activeElement.firstChild && activeElement.firstChild.nodeType === Node.TEXT_NODE) {
                 const textLength = activeElement.firstChild.textContent?.length || 0;
                 range.setStart(activeElement.firstChild, Math.min(caretOffset, textLength));
             } else {
@@ -256,7 +195,12 @@ export function handleEditorInput(event: Event, state: EditorState, statusMessag
     }
 }
 
-function handleEditorBlur(event: FocusEvent, editorContainer: HTMLElement, state: EditorState, statusMessage: HTMLElement): void {
+function handleEditorBlur(
+    event: FocusEvent,
+    editorContainer: HTMLElement,
+    state: EditorState,
+    statusMessage: HTMLElement
+): void {
     const target = event.target as HTMLElement;
     if (state.activeLine !== null && target.dataset.lineIndex) {
         if (parseInt(target.dataset.lineIndex, 10) === state.activeLine) {
@@ -270,8 +214,6 @@ function handleEditorBlur(event: FocusEvent, editorContainer: HTMLElement, state
 
 export function handleEditorKeyDown(event: KeyboardEvent, editorContainer: HTMLElement, state: EditorState): void {
     if (state.activeLine === null) return;
-
-    // Handle Enter key to split the current line into two blocks.
     if (event.key === "Enter") {
         event.preventDefault();
         const currentElement = editorContainer.querySelector(
@@ -306,7 +248,6 @@ export function handleEditorKeyDown(event: KeyboardEvent, editorContainer: HTMLE
         }
         return;
     }
-
     if (event.key === "ArrowUp") {
         event.preventDefault();
         const currentElement = editorContainer.querySelector(
@@ -345,7 +286,6 @@ export function bindToolbarButtons(
             scheduleSave(state, () => doSave(state, statusMessage));
         });
     });
-
     const linkButton = document.getElementById("linkBtn") as HTMLButtonElement;
     linkButton.addEventListener("mousedown", (e) => e.preventDefault());
     linkButton.addEventListener("click", () => {
@@ -353,7 +293,6 @@ export function bindToolbarButtons(
         renderHybridEditor(editorContainer, state);
         scheduleSave(state, () => doSave(state, statusMessage));
     });
-
     const listButton = document.getElementById("listBtn") as HTMLButtonElement;
     listButton.addEventListener("mousedown", (e) => e.preventDefault());
     listButton.addEventListener("click", () => {
@@ -361,13 +300,11 @@ export function bindToolbarButtons(
         renderHybridEditor(editorContainer, state);
         scheduleSave(state, () => doSave(state, statusMessage));
     });
-
     const copyButton = document.getElementById("copyBtn") as HTMLButtonElement;
     copyButton.addEventListener("mousedown", (e) => e.preventDefault());
     copyButton.addEventListener("click", () => {
         copyAllContent(state, statusMessage);
     });
-
     const saveButton = document.getElementById("saveBtn") as HTMLButtonElement;
     saveButton.addEventListener("mousedown", (e) => e.preventDefault());
     saveButton.addEventListener("click", () => {
@@ -375,18 +312,29 @@ export function bindToolbarButtons(
     });
 }
 
+function renderHybridEditor(editorContainer: HTMLElement, state: EditorState): void {
+    editorContainer.innerHTML = "";
+    state.lines.forEach((line, index) => {
+        const lineElement = createLineDiv(line, index, state.activeLine);
+        editorContainer.appendChild(lineElement);
+    });
+    if (state.activeLine !== null) {
+        const activeElement = editorContainer.querySelector(
+            `[data-line-index="${state.activeLine}"]`
+        ) as HTMLElement;
+        if (activeElement) {
+            activeElement.focus();
+        }
+    }
+}
+
 export function initEditor(options: EditorOptions): void {
     const nameDisplay = document.getElementById("note-name-display") as HTMLElement;
     const editorContainer = document.getElementById("hybridEditor") as HTMLElement;
     const statusMessage = document.getElementById("statusMsg") as HTMLElement;
-
-    // Strip quotes from noteName and initialContent
-    // TODO: im not sure why i have to do this, but for some reason quotes were being adding
     const cleanNoteName = stripWrappingQuotes(options.noteName);
     const cleanContent = stripWrappingQuotes(options.initialContent);
-    
     nameDisplay.textContent = cleanNoteName;
-    
     const state: EditorState = {
         noteName: cleanNoteName,
         lines: cleanContent.split("\n"),
@@ -401,9 +349,13 @@ export function initEditor(options: EditorOptions): void {
     editorContainer.addEventListener("input", (e) => {
         handleEditorInput(e, state, statusMessage);
     });
-    editorContainer.addEventListener("blur", (e) => {
-        handleEditorBlur(e, editorContainer, state, statusMessage);
-    }, true);
+    editorContainer.addEventListener(
+        "blur",
+        (e) => {
+            handleEditorBlur(e, editorContainer, state, statusMessage);
+        },
+        true
+    );
     editorContainer.addEventListener("keydown", (e) => {
         handleEditorKeyDown(e, editorContainer, state);
     });
@@ -424,38 +376,38 @@ export function debounce<F extends (...args: any[]) => void>(func: F, wait: numb
 
 export function createEditorResponse(noteName: string, content: string): Response {
     const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Editor - ${noteName}</title>
-        </head>
-        <body>
-          <h1>Editing Note: <span id="note-name-display"></span></h1>
-          <div class="toolbar">
-            <button id="saveBtn">Save</button>
-            <button data-format="**">Bold</button>
-            <button data-format="*">Italic</button>
-            <button data-format="\`">Inline Code</button>
-            <button data-format="\`\`\`">Code Block</button>
-            <button data-format="[ ] ">Checkbox</button>
-            <button id="linkBtn">Link</button>
-            <button id="listBtn">List Item</button>
-            <button id="copyBtn">Copy</button>
-            <span class="status" id="statusMsg"></span>
-          </div>
-          <div class="editor-container">
-            <div id="hybridEditor"></div>
-          </div>
-          <script type="module">
-            import { initEditor } from './editor.js'
-            initEditor({
-              noteName: ${JSON.stringify(noteName)},
-              initialContent: ${JSON.stringify(content)}
-            })
-          </script>
-        </body>
-      </html>
-    `;
+         <!DOCTYPE html>
+         <html>
+           <head>
+             <title>Editor - ${noteName}</title>
+           </head>
+           <body>
+             <h1>Editing Note: <span id="note-name-display"></span></h1>
+             <div class="toolbar">
+               <button id="saveBtn">Save</button>
+               <button data-format="**">Bold</button>
+               <button data-format="*">Italic</button>
+               <button data-format="\`">Inline Code</button>
+               <button data-format="\`\`\`">Code Block</button>
+               <button data-format="[ ] ">Checkbox</button>
+               <button id="linkBtn">Link</button>
+               <button id="listBtn">List Item</button>
+               <button id="copyBtn">Copy</button>
+               <span class="status" id="statusMsg"></span>
+             </div>
+             <div class="editor-container">
+               <div id="hybridEditor"></div>
+             </div>
+             <script type="module">
+               import { initEditor } from './editor.js'
+               initEditor({
+                 noteName: ${JSON.stringify(noteName)},
+                 initialContent: ${JSON.stringify(content)}
+               })
+             </script>
+           </body>
+         </html>
+       `;
     return new Response(html, {
         headers: { "Content-Type": "text/html" },
     });
@@ -470,7 +422,7 @@ export function handleEditorRoute(req: Request): Response {
             const cleanedContent = stripWrappingQuotes(content);
             return createEditorResponse(noteName, cleanedContent);
         });
-    } catch (error) {
+    } catch {
         return createEditorResponse(noteName, "");
     }
 }
