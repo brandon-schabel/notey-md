@@ -7,7 +7,7 @@ import {
 import { promises as fs } from "node:fs";
 import { dirname, relative, resolve, join } from "path";
 import { fileURLToPath } from "url";
-import { mkdir, mkdirSync } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { existsSync as existsSyncNode } from "node:fs";
 import { parseMarkdown } from "../markdown-parser/src";
 import { serve } from "bun";
