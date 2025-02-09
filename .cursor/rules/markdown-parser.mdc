@@ -1,0 +1,64 @@
+---
+description: Overview of markdown parser
+globs: markdown-parser/**/*.ts
+---
+---
+description: Zero Dependency CommonMark Markdown Parser Project Rules – This project is a full-featured AST parser for Markdown written entirely in TypeScript with zero external dependencies, implementing the latest CommonMark spec.
+globs: ["*.ts"]
+---
+
+# Project Overview
+
+This project is a zero dependency Markdown parser implemented completely in TypeScript. Its purpose is to build a fully CommonMark-compliant Abstract Syntax Tree (AST) from Markdown input. The parser is divided into modular components that handle different aspects of parsing—from block-level structure to inline formatting—and finally render the AST to HTML.
+
+## File Descriptions
+
+**ast.ts**  
+Defines all TypeScript interfaces and union types for the Markdown AST. This file provides node definitions for:
+- Block-level elements such as Document, Paragraph, Heading, Blockquote, List, ListItem, CodeBlock, ThematicBreak, and HtmlBlock.
+- Inline elements such as Text, Emphasis, Strong, CodeSpan, Link, Image, LineBreak, and RawHtml.
+- Reference definitions for link resolution.
+These types form the backbone of the parser by outlining the structure of every Markdown element.
+
+**block-parser.ts**  
+Implements the block-level parsing phase. It processes the Markdown input line-by-line using a container stack to create the hierarchical structure of the document. This module handles the recognition and proper nesting of block elements (e.g., paragraphs, headings, blockquotes, lists, fenced and indented code blocks, HTML blocks) according to the CommonMark specification.
+
+**inline-parser.ts**  
+Responsible for the inline parsing phase. It converts raw text within block elements into a structured inline AST by tokenizing the text and then applying a delimiter stack algorithm. This module manages inline elements such as emphasis, strong, code spans, links, images, escape sequences, and raw HTML to ensure accurate parsing of nested formatting.
+
+**parse-markdown.ts**  
+Acts as the main entry point for the parser. It coordinates the overall parsing process by:
+1. Invoking the block parser to build the initial AST.
+2. Running the inline parser on text-containing nodes to transform raw text into inline elements.
+3. Passing the complete AST to the renderer to produce HTML output.
+This module abstracts the complete Markdown-to-HTML conversion workflow.
+
+**parser-helpers.ts**  
+Provides shared utility functions that support both block and inline parsing. Functions in this file include:
+- Normalizing input (e.g., newline conversion, tab handling).
+- Extracting raw paragraph content.
+- Strict detection of HTML block openings.
+- Parsing and normalizing reference definitions.
+These helpers streamline the parsing logic across the project.
+
+**renderer.ts**  
+Converts the final AST into an HTML string. It recursively traverses the AST, applying proper HTML escaping and structure based on each node type. This module ensures that the rendered HTML faithfully represents the original Markdown content as defined by CommonMark.
+
+**index.ts**  
+Exports the primary functions and types of the parser, serving as the public API. It makes it straightforward to integrate the Markdown parser into other projects or testing setups by exposing the main parsing function and relevant types.
+
+## Project Objectives
+
+- **Zero Dependencies:**  
+  The entire parser is written in TypeScript without using any external libraries, ensuring a minimal footprint and full control over the implementation.
+
+- **CommonMark Compliance:**  
+  The parser is designed to fully implement the latest CommonMark specification, handling all standard Markdown elements and edge cases accurately.
+
+- **Modular & Extensible Architecture:**  
+  By splitting the code into focused modules (AST definitions, block parsing, inline parsing, rendering, and helpers), the project is highly maintainable and easily extensible for future enhancements (e.g., GitHub-Flavored Markdown extensions).
+
+- **Performance & Testability:**  
+  The code emphasizes efficient parsing strategies and clear separation of concerns to facilitate unit testing using Bun’s test suite. Each module is structured to be easily testable in isolation.
+
+This cursor rules file provides contextual documentation for AI assistance. It ensures that any AI-generated contributions or suggestions remain consistent with the project’s architecture, coding philosophy, and the goals of building a full-featured, zero dependency, CommonMark-compliant Markdown parser in TypeScript.

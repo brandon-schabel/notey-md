@@ -1,6 +1,8 @@
 {
   "name": "@bnk/md-parse",
   "module": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "module",
   "devDependencies": {
     "@types/bun": "latest"
@@ -10,8 +12,11 @@
   },
   "scripts": {
     "test": "bun test",
-    "build": "echo 'No build step yet, this is pure TypeScript in Bun.'",
+    "clean": "rm -rf dist",
+    "build:types": "tsc --project tsconfig.build.json",
+    "build:bundle": "bun build ./src/index.ts --outdir=dist --format=esm --minify --sourcemap",
+    "build": "npm run clean && npm run build:types && npm run build:bundle",
     "test:integration": "bun test tests/integration/common-mark-0-31-2-spec.test.ts",
-    "test:unit": "bun test src/index.test.ts"
+    "test:unit": "bun test tests/unit"
   }
 }

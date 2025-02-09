@@ -5,10 +5,12 @@ import {
     writeFileSync as nodeWriteFileSync
 } from "node:fs";
 import { promises as fs } from "node:fs";
-import { dirname, relative, resolve } from "path";
+import { dirname, relative, resolve, join } from "path";
 import { fileURLToPath } from "url";
-import { mkdir } from "node:fs/promises";
+import { mkdir, mkdirSync } from "node:fs/promises";
 import { existsSync as existsSyncNode } from "node:fs";
+import { parseMarkdown } from "../markdown-parser/src";
+import { serve } from "bun";
 
 export interface AppConfig {
     port: number;
@@ -78,11 +80,8 @@ async function handleGetRequest(request: Request, config: AppConfig): Promise<Re
         });
     }
 
-    // New route to serve the markdownParser module
-    if (path === "/mardown-parser.js" || path === "/notes/markdown-parse.js") {
-        const tsContent = await Bun.file("./markdownParser.ts").text();
-        const transpiler = new Bun.Transpiler({ loader: "ts" });
-        const jsContent = await transpiler.transform(tsContent);
+    if (path === "/markdown-parser/dist/index.js") {
+        const jsContent = await Bun.file("../markdown-parser/dist/index.js").text();
         return new Response(jsContent, {
             headers: { "Content-Type": "application/javascript" }
         });
@@ -137,17 +136,49 @@ async function handlePostRequest(request: Request, config: AppConfig): Promise<R
         try {
             const body = await request.json();
             const { filename, content } = body || {};
-            if (typeof filename !== "string" || typeof content !== "string") {
-                return new Response("Invalid request body.", { status: 400 });
+
+            // Validate request body
+            if (!filename || typeof filename !== "string") {
+                return new Response("Missing or invalid filename", {
+                    status: 400,
+                    headers: { "Content-Type": "application/json" }
+                });
             }
+
+            if (typeof content !== "string") {
+                return new Response("Missing or invalid content", {
+                    status: 400,
+                    headers: { "Content-Type": "application/json" }
+                });
+            }
+
+            // Ensure the path is safe
             const safePath = ensureSafePath(filename, config.vaultPath);
+
+            // Write the file
             await writeNoteToDisk(safePath, content);
+
+            // Update search index and fire plugins
             fireOnNoteSavePlugins(safePath, content);
             updateSearchIndexForNote(safePath, content);
-            return new Response("Note saved successfully.", { status: 200 });
+
+            return new Response(JSON.stringify({
+                success: true,
+                message: "Note saved successfully",
+                timestamp: new Date().toISOString()
+            }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" }
+            });
         } catch (err) {
             console.error("Error saving note:", err);
-            return new Response("Failed to save note.", { status: 500 });
+            return new Response(JSON.stringify({
+                success: false,
+                error: "Failed to save note"
+            }), {
+                status: 500,
+                headers: { "Content-Type": "application/json" }
+            });
         }
     }
 
@@ -267,144 +298,26 @@ function renderHomePageHTML(config: AppConfig): string {
 }
 
 export function renderEditorPage(noteName: string, rawMarkdown: string): string {
-    const readFile =
-        (typeof (globalThis as any).readFileSync === "function"
-            ? (globalThis as any).readFileSync
-            : nodeReadFileSync) as typeof nodeReadFileSync;
+    const readFile = (typeof (globalThis as any).readFileSync === "function"
+        ? (globalThis as any).readFileSync
+        : nodeReadFileSync) as typeof nodeReadFileSync;
     const editorHtml = readFile(resolve(workspace, "editor.html"), { encoding: "utf8" });
-    const ast = parseMarkdown(rawMarkdown);
-    let rendered = renderMarkdownASTToHTML(ast);
-    if (ast.length === 0) {
-        rendered = "";
-    }
+    const rendered = parseMarkdown(rawMarkdown);
+
+    // Replace placeholders with JavaScript literals
     let replaced = editorHtml
-        .replace("PLACEHOLDER_NOTE_NAME", JSON.stringify(noteName))
-        .replace("PLACEHOLDER_CONTENT", JSON.stringify(rawMarkdown))
+        .replace(
+            "PLACEHOLDER_NOTE_NAME",
+            `${JSON.stringify(noteName)}`
+        )
+        .replace(
+            "PLACEHOLDER_CONTENT",
+            `${JSON.stringify(rawMarkdown)}`
+        )
         .replace('<div id="preview"></div>', `<div id="preview">${rendered}</div>`);
     return replaced;
 }
 
-export function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-}
-
-export interface MarkdownNode {
-    type: string;
-    level?: number;
-    content?: string;
-    children?: MarkdownNode[];
-}
-
-export function parseMarkdown(markdownContent: string): MarkdownNode[] {
-    const lines = markdownContent.split(/\r?\n/);
-    const ast: MarkdownNode[] = [];
-    let inCodeBlock = false;
-    let codeBuffer: string[] = [];
-    for (let i = 0; i < lines.length; i++) {
-        const rawLine = lines[i];
-        const trimmedLeft = rawLine.trimStart();
-        if (trimmedLeft.startsWith("```")) {
-            if (!inCodeBlock) {
-                inCodeBlock = true;
-                codeBuffer = [];
-            } else {
-                ast.push({ type: "codeblock", content: codeBuffer.join("\n") });
-                inCodeBlock = false;
-            }
-            continue;
-        }
-        if (inCodeBlock) {
-            codeBuffer.push(rawLine);
-            continue;
-        }
-        const headingMatch = /^[#]{1,6}\s+(.*)$/.exec(trimmedLeft);
-        if (headingMatch) {
-            const hashCount = (trimmedLeft.match(/^#+/) || [""])[0].length;
-            ast.push({
-                type: "heading",
-                level: hashCount,
-                content: headingMatch[1]
-            });
-            continue;
-        }
-        const checkboxMatch = /^[*-]\s+\$begin:math:display\$\s*([ xX])\s*\$end:math:display\$\s+(.*)$/.exec(trimmedLeft);
-        if (checkboxMatch) {
-            const isChecked = checkboxMatch[1].toLowerCase() === "x";
-            const restContent = checkboxMatch[2];
-            ast.push({
-                type: "checkbox",
-                content: (isChecked ? "[x] " : "[ ] ") + restContent
-            });
-            continue;
-        }
-        const listItemMatch = /^[*-]\s+(.*)$/.exec(trimmedLeft);
-        if (listItemMatch) {
-            ast.push({
-                type: "list-item",
-                content: listItemMatch[1]
-            });
-            continue;
-        }
-        if (trimmedLeft.length > 0) {
-            ast.push({
-                type: "paragraph",
-                content: rawLine.trimEnd()
-            });
-        }
-    }
-    if (inCodeBlock && codeBuffer.length) {
-        ast.push({
-            type: "codeblock",
-            content: codeBuffer.join("\n")
-        });
-    }
-    return ast;
-}
-
-export function renderMarkdownASTToHTML(ast: MarkdownNode[]): string {
-    const lines: string[] = [];
-    for (const node of ast) {
-        if (node.type === "heading" && node.level && node.content) {
-            lines.push(`<h${node.level}>${inlineParse(escapeHtml(node.content))}</h${node.level}>`);
-        } else if (node.type === "paragraph" && node.content) {
-            lines.push(`<p>${inlineParse(escapeHtml(node.content))}</p>`);
-        } else if (node.type === "codeblock" && node.content) {
-            lines.push(`<pre><code>${escapeHtml(node.content)}</code></pre>`);
-        } else if (node.type === "list-item" && node.content) {
-            lines.push(`<ul><li>${inlineParse(escapeHtml(node.content))}</li></ul>`);
-        } else if (node.type === "checkbox" && node.content) {
-            const isChecked = node.content.startsWith("[x]");
-            const afterBracket = node.content.replace(/^$begin:math:display$x$end:math:display$\s+|^$begin:math:display$\\s$end:math:display$\s+/, "");
-            lines.push(`
-<ul>
-  <li>
-    <label>
-      <input type="checkbox" ${isChecked ? "checked" : ""} disabled>
-      ${inlineParse(escapeHtml(afterBracket))}
-    </label>
-  </li>
-</ul>
-			`);
-        }
-    }
-    return lines.join("\n");
-}
-
-export function inlineParse(text: string): string {
-    let result = text;
-    result = result.replace(/\*\*\*(.*?)\*\*\*/g, (_, triple) => `<strong><em>${triple}</em></strong>`);
-    result = result.replace(/\*\*(.*?)\*\*/g, (_, boldText) => `<strong>${boldText}</strong>`);
-    result = result.replace(/\_\_(.*?)\_\_/g, (_, boldText) => `<strong>${boldText}</strong>`);
-    result = result.replace(/\*(.*?)\*/g, (_, italics) => `<em>${italics}</em>`);
-    result = result.replace(/\_(.*?)\_/g, (_, italics) => `<em>${italics}</em>`);
-    result = result.replace(/`([^`]+)`/g, (_, codeText) => `<code class="inline">${codeText}</code>`);
-    return result;
-}
 
 export function readNoteFromDiskSync(path: string): string {
     return nodeReadFileSync(path, { encoding: "utf8" });

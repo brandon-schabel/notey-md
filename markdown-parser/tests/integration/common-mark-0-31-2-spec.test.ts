@@ -1,7 +1,7 @@
 import { test, describe, expect, afterAll } from "bun:test";
 import { writeFileSync } from "fs";
-import { parseMarkdown } from "../../../markdown-parser/src/index";
 import { integrationTestDir } from "./int-test-config";
+import { parseMarkdown } from "@/parse-markdown";
 
 
 interface CommonMarkTest {

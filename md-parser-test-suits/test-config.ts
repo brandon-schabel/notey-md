@@ -1,1 +1,0 @@
-export const testDir = import.meta.dir;

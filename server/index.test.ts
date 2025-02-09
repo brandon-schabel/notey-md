@@ -9,9 +9,6 @@ import {
     afterEach
 } from "bun:test";
 import {
-    parseMarkdown,
-    renderMarkdownASTToHTML,
-    type MarkdownNode,
     ensureSafePath,
     readNoteFromDisk,
     writeNoteToDisk,
@@ -22,14 +19,9 @@ import {
     type Plugin,
     defaultConfig,
     buildSnippetForFileSync,
-    startServer,
     renderEditorPage,
-    escapeHtml,
     readNoteFromDiskSync,
     writeNoteToDiskSync,
-    createServer,
-    ensureVaultDirectoryExists,
-    type Server
 } from "./index";
 import {
     mkdirSync,
@@ -85,68 +77,8 @@ describe("File System Setup and Teardown", () => {
     });
 });
 
-describe("Markdown Parsing Edge Cases", () => {
-    test("Multiple consecutive blank lines do not create extra nodes", () => {
-        const md = "Line1\n\n\nLine2\n\n\nLine3";
-        const ast = parseMarkdown(md);
-        expect(ast.length).toBe(3);
-        expect(ast[0].type).toBe("paragraph");
-        expect(ast[1].type).toBe("paragraph");
-        expect(ast[2].type).toBe("paragraph");
-    });
 
-    test("Heading with no space after hash is treated as paragraph", () => {
-        const md = "#NoSpaceHere\n# Normal Heading";
-        const ast = parseMarkdown(md);
-        expect(ast.length).toBe(2);
-        expect(ast[0].type).toBe("paragraph");
-        expect(ast[1].type).toBe("heading");
-    });
 
-    test("Inline parse ignores special characters that are incomplete", () => {
-        const md = `This has asterisks *but not closed and underscores _like so`;
-        const ast = parseMarkdown(md);
-        const html = renderMarkdownASTToHTML(ast);
-        expect(html).toContain("asterisks *but not closed");
-        expect(html).toContain("underscores _like so");
-    });
-
-    test("Mixed code blocks with inconsistent indentation", () => {
-        const md = "```\ncode\n  indented\n```\n```\nsecond\n```";
-        const ast = parseMarkdown(md);
-        expect(ast.length).toBe(2);
-        expect(ast[0].type).toBe("codeblock");
-        expect(ast[1].type).toBe("codeblock");
-    });
-
-    test("Multiple code blocks in one file", () => {
-        const md = "```\nblock1\n```\n\n```\nblock2\n```\n\nParagraph\n```\nblock3\n```";
-        const ast = parseMarkdown(md);
-        expect(ast.length).toBe(4);
-        expect(ast[0].type).toBe("codeblock");
-        expect(ast[1].type).toBe("codeblock");
-        expect(ast[2].type).toBe("paragraph");
-        expect(ast[3].type).toBe("codeblock");
-    });
-});
-
-describe("Additional Markdown Rendering Checks", () => {
-    test("Nested bold and italic are rendered correctly", () => {
-        const ast: MarkdownNode[] = [
-            { type: "paragraph", content: "This is ***really bold and italic***." }
-        ];
-        const html = renderMarkdownASTToHTML(ast);
-        expect(html).toContain("<strong><em>really bold and italic</em></strong>");
-    });
-
-    test("Ampersand, angle brackets, and quotes are escaped in paragraph", () => {
-        const ast: MarkdownNode[] = [
-            { type: "paragraph", content: `5 < 6 & "text"` }
-        ];
-        const html = renderMarkdownASTToHTML(ast);
-        expect(html).toContain("5 &lt; 6 &amp; &quot;text&quot;");
-    });
-});
 
 describe("File System Additional Edge Cases", () => {
     const unusualFilePath = join(testWorkspace, "unusualChars.md");
@@ -291,11 +223,6 @@ describe("Editor and HTML Rendering", () => {
         expect(html).toContain("Test Title");
     });
 
-    test("escapeHtml ensures all critical characters are escaped", () => {
-        const raw = `<script>alert("x")</script>`;
-        const escaped = escapeHtml(raw);
-        expect(escaped).toBe("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
-    });
 
     test("renderEditorPage throws if editor.html is missing (mocking readFileSync)", () => {
         const originalRead = readFileSync;
@@ -328,11 +255,6 @@ describe("Concurrent File Operations", () => {
 });
 
 describe("Boundary and Error Handling", () => {
-    test("Function parseMarkdown handles extremely large input gracefully", () => {
-        const largeMarkdown = "#".repeat(100000);
-        const ast = parseMarkdown(largeMarkdown);
-        expect(ast.length).toBeGreaterThan(0);
-    });
 
     test("ensureSafePath with absolute path pointing inside vault is allowed", () => {
         const baseDir = join(testWorkspace, "vaultTest");

@@ -1,0 +1,120 @@
+---
+description: information about the notey-md server
+globs: server/**/*.ts
+---
+---
+description: >
+  Notey MD is a zero-dependency markdown notebook editor designed to work directly with raw markdown files.
+  Users simply place their markdown files in a designated directory, and the server reads, renders, and
+  provides an interactive interface for viewing and editing them. The project’s architecture is modular:
+  it includes an advanced editor module (implemented in TypeScript/JavaScript) that handles markdown
+  parsing, rendering, and interactive editing; an index HTML that loads the editor module via a script tag;
+  and a server that bundles and delivers the editor module using Bun’s native capabilities. This rule file
+  explains the core features of the editor module, how the index HTML integrates with it, and the overall
+  project goal of building a comprehensive yet minimal markdown notebook editor.
+globs:
+  - "editor.ts"
+  - "editor.html"
+  - "index.ts"
+  - "*.md"
+  - "README.md"
+---
+
+# Notey MD Project Overview and Cursor Rules
+
+Notey MD is a comprehensive markdown notebook editor built to operate directly on raw markdown files.
+Its purpose is to provide an intuitive web-based interface that lets users view, edit, and render markdown
+files stored in a directory without relying on external dependencies. This project emphasizes simplicity,
+performance, and maintainability by leveraging Bun’s native features and modern TypeScript practices.
+
+## Overall Project Purpose
+
+- **Raw Markdown File Management:** Users store their markdown files in a designated directory. The
+  server reads these files directly from the filesystem.
+- **Dynamic Rendering and Editing:** The interface displays both the raw markdown and the fully rendered
+  HTML version, allowing for real-time editing.
+- **Zero Dependency:** The entire solution is built without external dependencies, relying solely on
+  Bun’s built-in features and modern TypeScript for clarity and performance.
+
+## Editor Module Details (editor.ts)
+
+The editor module is the heart of the interactive editing experience. Its responsibilities include:
+
+1. **Rendering Markdown Content:**
+   - Splits the raw markdown into individual lines.
+   - Uses the `createLineDiv` function to generate HTML elements for each line.
+   - Sets active lines as editable (`contentEditable = "true"`) and renders inactive lines using the
+     output from the `parseMarkdown` function to display fully formatted HTML.
+
+2. **User Interaction Handling:**
+   - **Click Events:** The `handleEditorClick` function detects which line is clicked and sets it as the
+     active line. It focuses the clicked element and places the caret appropriately.
+   - **Input Events:** The `handleEditorInput` function captures text changes on the active line, updates
+     the underlying markdown content, and triggers an auto-save mechanism.
+   - **Blur and Keydown Events:** These events ensure that changes are committed when the user navigates
+     away from a line or uses keys like Enter and the arrow keys to navigate between lines.
+
+3. **Toolbar Integration and Formatting:**
+   - The module integrates with a toolbar that includes buttons for formatting actions such as Bold,
+     Italic, Inline Code, Code Block, Checkbox, Link, List Item, Copy, and Save.
+   - Each toolbar button is bound to a specific function that applies a formatting change to the active
+     line. For example, applying bold formatting wraps the active line text in `**` markers, while the
+     link button appends a markdown link template.
+   - These formatting functions update the editor state and re-render the editor to reflect changes.
+
+4. **Auto-Saving and Status Feedback:**
+   - The editor module uses a debouncing mechanism to schedule auto-save operations when content changes.
+   - A status message element provides feedback to the user regarding save operations (e.g., "Saved at
+     12:34 PM" or "Save failed!").
+
+## How the Index HTML Loads the Editor (editor.html)
+
+The `editor.html` file is the main template that loads and initializes the editor interface:
+
+- **Static Structure:**
+  - Contains placeholders for the note name, toolbar, status message, and the editor container where
+    markdown lines are rendered.
+  - Defines the overall layout and styling to provide a clean and focused editing environment.
+
+- **Dynamic Module Loading:**
+  - At the bottom of the HTML, a `<script type="module">` tag imports the editor module.
+  - The script calls `initEditor` with configuration options (note name and initial markdown content),
+    which bootstraps the editor in the browser.
+  - This dynamic import ensures that the latest bundled version of the editor module is loaded and
+    initialized on page load.
+
+## Button Server and Module Bundling (index.ts)
+
+The server, as implemented in `index.ts`, plays a key role in delivering the editor module:
+
+- **Bundling the Editor Module:**
+  - When the browser requests the `editor.js` file, the server uses Bun’s native transpiler to
+    transform `editor.ts` (written in TypeScript) into JavaScript.
+  - This bundling process ensures the editor module is optimized and delivered efficiently, aligning
+    with the project’s zero-dependency philosophy.
+
+- **Routing and File Handling:**
+  - The server handles various routes (e.g., `/editor/NoteName`, `/notes/save`), reading markdown files
+    from the filesystem, processing them, and returning the appropriate HTML pages.
+  - It integrates with the markdown parser and the editor module, ensuring that all changes (such as
+    edits or formatting updates) are saved back to the markdown files.
+
+## Overall Project Goal
+
+Notey MD is designed to offer a simple yet powerful markdown notebook editor that:
+
+- **Provides a Seamless Editing Experience:** Users can view, edit, and format markdown content
+  in real time with a clear distinction between raw markdown and its rendered HTML.
+- **Operates Directly on Markdown Files:** There is no need for complex databases or external
+  storage mechanisms; all notes are managed as plain markdown files in a directory.
+- **Ensures High Performance and Maintainability:** By leveraging Bun’s built-in features and
+  advanced TypeScript practices, the project maintains a minimal dependency footprint while offering
+  robust functionality.
+- **Integrates a Comprehensive Editor Module:** The editor module encapsulates all aspects of user
+  interaction—from rendering and formatting to auto-saving and status feedback—making it the central
+  component of the user interface.
+
+This project encapsulates the philosophy of providing a comprehensive, dependency-free markdown
+editing environment that “just works” for users who manage their notes as raw markdown files. The
+modular design, clean code, and efficient use of Bun’s capabilities make Notey MD an ideal solution
+for anyone seeking a lightweight, yet powerful, markdown notebook editor.

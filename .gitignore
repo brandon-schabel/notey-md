@@ -179,3 +179,5 @@ notes
 
 .test-tmp
 .test-tmp-extra
+
+failed-spec-tests.json

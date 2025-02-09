@@ -5,13 +5,13 @@
       "ESNext",
       "DOM"
     ],
-    "target": "ESNext",
+    "target": "ES2020",
     "module": "ESNext",
     "moduleDetection": "force",
     "jsx": "react-jsx",
     "allowJs": true,
     // Bundler mode
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
@@ -26,7 +26,10 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    "outDir": "./dist",
+    "declaration": true,
+    "esModuleInterop": true
   },
   "include": [
     "src/**/*.ts",
