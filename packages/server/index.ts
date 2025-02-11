@@ -1,11 +1,11 @@
-import { readdirSync, existsSync as nodeExistsSync, readFileSync as nodeReadFileSync, writeFileSync as nodeWriteFileSync, Dirent } from "node:fs"
+import { readdirSync, existsSync as nodeExistsSync, readFileSync as nodeReadFileSync, writeFileSync as nodeWriteFileSync, Dirent, existsSync } from "node:fs"
 import { promises as fs } from "node:fs"
 import { dirname, relative, resolve, join, parse as parsePath, sep } from "path"
 import { fileURLToPath } from "url"
 import { mkdir } from "node:fs/promises"
 import { existsSync as existsSyncNode } from "node:fs"
 import { parseMarkdown } from "../markdown-parser/src"
-import { serve } from "bun"
+import { serve, Transpiler } from "bun"
 
 export interface AppConfig {
     port: number
@@ -22,7 +22,16 @@ export const defaultConfig: AppConfig = {
         : resolve(directoryForThisModule, "notes")
 }
 
+console.log("process.env.NODE_ENV", process.env.NODE_ENV)
+const isDev = process.env.NODE_ENV !== "production"
+console.log("isDev", isDev)
+
 export type Server = ReturnType<typeof Bun.serve>
+
+const devFrontendDir = join(directoryForThisModule, "frontend")
+const prodFrontendDir = join(directoryForThisModule, "dist", "frontend")
+
+const frontendDir = isDev ? devFrontendDir : prodFrontendDir
 
 export function createServer(config: AppConfig): Server {
     const server = Bun.serve({
@@ -59,12 +68,80 @@ async function handleGetRequest(request: Request, config: AppConfig): Promise<Re
         const homeHTML = renderHomePageHTML(config)
         return new Response(homeHTML, { headers: { "Content-Type": "text/html" } })
     }
-    if (requestPath === "/editor.js" || requestPath === "/notes/editor.js") {
-        const tsContent = await Bun.file("./editor.ts").text()
-        const transpiler = new Bun.Transpiler({ loader: "ts" })
-        const jsContent = await transpiler.transform(tsContent)
-        return new Response(jsContent, { headers: { "Content-Type": "application/javascript" } })
-    }
+
+
+    if (requestPath.startsWith("/app/")) {
+        // The part after `/app/`
+        const subPath = requestPath.slice("/app/".length);
+
+
+
+        console.log("subPath", subPath)
+
+
+        
+    
+        if (isDev) {
+          // Development => attempt to find matching file with alternative extensions
+          const requestedFile = join(frontendDir, subPath);
+          const fileInfo = parsePath(requestedFile);
+          
+          // Helper function to check for alternative file extensions
+          const findMatchingFile = (basePath: string, ext: string): string | null => {
+            const alternatives = [ext, 'jsx', 'ts', 'tsx'];
+            // If requesting .js, check for all possible source files
+            if (ext === 'js') {
+              for (const alt of alternatives) {
+                const candidatePath = `${basePath}.${alt}`;
+                if (existsSync(candidatePath)) {
+                  return candidatePath;
+                }
+              }
+              return null;
+            }
+            // For other extensions, just check the exact file
+            return existsSync(`${basePath}.${ext}`) ? `${basePath}.${ext}` : null;
+          };
+
+          const matchingFile = findMatchingFile(fileInfo.dir + sep + fileInfo.name, fileInfo.ext.slice(1));
+          
+          if (!matchingFile) {
+            return new Response("Not Found", { status: 404 });
+          }
+
+          // If it's TypeScript/TSX or JSX, transpile:
+          if (matchingFile.match(/\.(ts|tsx|jsx)$/)) {
+            const source = await Bun.file(matchingFile).text();
+            const transpiler = new Transpiler({
+              loader: matchingFile.endsWith('tsx') ? 'tsx' : 'ts',
+            });
+            const code = transpiler.transformSync(source);
+            return new Response(code, {
+              headers: { "Content-Type": "application/javascript" },
+            });
+          }
+
+          // If it's HTML/CSS or a static asset, just read and return it:
+          return new Response(Bun.file(matchingFile));
+        } else {
+          // Production => serve from dist/public
+          // The structure in dist/public should mirror what's in frontend/
+          const candidateProdPath = join(prodFrontendDir, subPath);
+          if (!existsSync(candidateProdPath)) {
+            return new Response("Not Found", { status: 404 });
+          }
+          return new Response(Bun.file(candidateProdPath));
+        }
+      }
+
+      
+    // if (requestPath === "/editor.js" || requestPath === "/notes/editor.js") {
+    //     const tsContent = await Bun.file("./editor.ts").text()
+    //     const transpiler = new Bun.Transpiler({ loader: "ts" })
+    //     const jsContent = await transpiler.transform(tsContent)
+    //     return new Response(jsContent, { headers: { "Content-Type": "application/javascript" } })
+    // }
+    // TODO: output markdown parser to server/frontend
     if (requestPath === "/markdown-parser/dist/index.js") {
         const jsContent = await Bun.file("../markdown-parser/dist/index.js").text()
         return new Response(jsContent, { headers: { "Content-Type": "application/javascript" } })
@@ -160,160 +237,13 @@ async function handlePostRequest(request: Request, config: AppConfig): Promise<R
 function renderHomePageHTML(config: AppConfig): string {
     const filesAndDirectories = listAllMarkdownFilesAsTree(config.vaultPath)
     const fileTreeHTML = buildNestedListMarkup(filesAndDirectories, config.vaultPath)
-    return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8"/>
-      <title>Notes Home</title>
-      <style>
-        :root {
-          box-sizing: border-box;
-        }
-        * {
-          box-sizing: inherit;
-        }
-        body {
-          margin: 0;
-          padding: 1rem;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          max-width: 700px;
-          margin-left: auto;
-          margin-right: auto;
-          line-height: 1.5;
-        }
-        h1 {
-          text-align: center;
-          margin: 1rem 0;
-        }
-        .search-bar {
-          display: flex;
-          align-items: center;
-          margin-bottom: 1rem;
-        }
-        #searchInput {
-          width: 100%;
-          padding: 0.5rem;
-          font-size: 1rem;
-        }
-        .search-results {
-          margin-top: 1rem;
-        }
-        #newNoteForm {
-          margin-top: 1rem;
-          display: flex;
-          gap: 0.5rem;
-        }
-        #newNoteInput {
-          flex: 1;
-          padding: 0.4rem;
-          font-size: 1rem;
-        }
-        #createNoteButton {
-          padding: 0.5rem 0.8rem;
-          font-size: 1rem;
-          cursor: pointer;
-        }
-        .file-tree-container ul {
-          list-style-type: none;
-          padding-left: 1.5rem;
-        }
-        .file-tree-container li {
-          margin: 0.25rem 0;
-        }
-        .copy-btn {
-          margin-left: 0.5rem;
-          font-size: 0.9rem;
-          cursor: pointer;
-        }
-      </style>
-    </head>
-    <body>
-      <h1>My Markdown Notes</h1>
-      <div class="search-bar">
-        <input type="text" id="searchInput" placeholder="Search notes by content..." />
-      </div>
-      <div class="search-results" id="searchResults"></div>
-      <form id="newNoteForm">
-        <input type="text" id="newNoteInput" placeholder="New note filename (e.g. ideas.md)" />
-        <button type="submit" id="createNoteButton">Create</button>
-      </form>
-      <div class="file-tree-container">${fileTreeHTML}</div>
-      <script>
-        const searchInputElement = document.getElementById("searchInput")
-        const searchResultsElement = document.getElementById("searchResults")
-        searchInputElement.addEventListener("input", async () => {
-          const queryValue = searchInputElement.value.trim()
-          if (!queryValue) {
-            searchResultsElement.innerHTML = ""
-            return
-          }
-          const response = await fetch("/search?query=" + encodeURIComponent(queryValue))
-          if (!response.ok) {
-            searchResultsElement.innerHTML = "Error searching"
-            return
-          }
-          const data = await response.json()
-          if (!Array.isArray(data)) {
-            searchResultsElement.innerHTML = "No results"
-            return
-          }
-          if (data.length === 0) {
-            searchResultsElement.innerHTML = "No results"
-            return
-          }
-          let resultsMarkup = "<ul>"
-          for (const item of data) {
-            const pathParts = item.notePath.split(/\\\\|\\|\\//)
-            const lastPart = pathParts[pathParts.length - 1]
-            resultsMarkup += "<li><a href='/notes/" + encodeURIComponent(relativePathFromVault(lastPart)) + "'>" + lastPart + "</a> - " + (item.snippet || "") + "</li>"
-          }
-          resultsMarkup += "</ul>"
-          searchResultsElement.innerHTML = resultsMarkup
-        })
-        function relativePathFromVault(filename) {
-          return filename
-        }
-        const newNoteFormElement = document.getElementById("newNoteForm")
-        newNoteFormElement.addEventListener("submit", async (e) => {
-          e.preventDefault()
-          const newNoteInputElement = document.getElementById("newNoteInput")
-          const filenameValue = newNoteInputElement.value.trim()
-          if (!filenameValue) return
-          const createResponse = await fetch("/notes/create", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ filename: filenameValue })
-          })
-          if (!createResponse.ok) {
-            alert("Failed to create note")
-            return
-          }
-          const createData = await createResponse.json()
-          if (createData.success) {
-            window.location.href = "/notes/" + encodeURIComponent(filenameValue)
-          } else {
-            alert(createData.error || "Failed to create note")
-          }
-        })
-        document.querySelectorAll(".copy-btn").forEach(button => {
-          button.addEventListener("click", async () => {
-            const targetPath = button.getAttribute("data-path")
-            const resp = await fetch("/notes/" + targetPath + "?copy=1")
-            if (!resp.ok) {
-              alert("Copy failed")
-              return
-            }
-            const content = await resp.text()
-            await navigator.clipboard.writeText(content)
-            button.textContent = "Copied!"
-            setTimeout(() => { button.textContent = "Copy" }, 1500)
-          })
-        })
-      </script>
-    </body>
-    </html>
-  `
+    
+    const readFileReference = typeof (globalThis as any).readFileSync === "function"
+        ? (globalThis as any).readFileSync
+        : nodeReadFileSync
+    const indexFileContent = readFileReference(resolve(frontendDir, "index.html"), { encoding: "utf8" })
+    
+    return indexFileContent.replace("PLACEHOLDER_FILE_TREE", fileTreeHTML)
 }
 
 function buildNestedListMarkup(entries: TreeEntry[], vaultPath: string): string {
@@ -371,7 +301,7 @@ export function renderEditorPage(noteName: string, rawMarkdown: string): string 
     const readFileReference = typeof (globalThis as any).readFileSync === "function"
         ? (globalThis as any).readFileSync
         : nodeReadFileSync
-    const editorFileContent = readFileReference(resolve(directoryForThisModule, "editor.html"), { encoding: "utf8" })
+    const editorFileContent = readFileReference(resolve(directoryForThisModule, "frontend", "editor.html"), { encoding: "utf8" })
     const renderedMarkdown = parseMarkdown(rawMarkdown)
     let replacedHTML = editorFileContent
         .replace("PLACEHOLDER_NOTE_NAME", `${JSON.stringify(noteName)}`)
@@ -394,6 +324,7 @@ export async function readNoteFromDisk(notePath: string): Promise<string> {
 }
 
 export async function writeNoteToDisk(notePath: string, content: string): Promise<void> {
+    await mkdir(dirname(notePath), { recursive: true })
     await Bun.write(notePath, content)
 }
 
@@ -573,12 +504,53 @@ const examplePlugin: Plugin = {
     }
 }
 
+// Global flag to track if browser has been opened
+declare global {
+    var __BROWSER_OPENED: boolean;
+}
+
+const BROWSER_STATE_FILE = resolve(directoryForThisModule, "node_modules", ".browser_opened");
+
 if (import.meta.main && process.env.NODE_ENV !== "test") {
-    ; (async () => {
+    // Clean up the browser state file when the process exits
+    process.on("SIGINT", () => {
         try {
-            await startServer(defaultConfig)
-        } catch (error) {
-            process.exit(1)
+            if (nodeExistsSync(BROWSER_STATE_FILE)) {
+                Bun.spawnSync(["rm", BROWSER_STATE_FILE]);
+            }
+        } finally {
+            process.exit();
         }
-    })()
+    });
+
+    process.on("SIGTERM", () => {
+        try {
+            if (nodeExistsSync(BROWSER_STATE_FILE)) {
+                Bun.spawnSync(["rm", BROWSER_STATE_FILE]);
+            }
+        } finally {
+            process.exit();
+        }
+    });
+
+    ;(async () => {
+        try {
+            const server = await startServer(defaultConfig);
+            console.log(`Server is running on http://localhost:${defaultConfig.port}`);
+            
+            // Check if we've already opened the browser in this session
+            if (!nodeExistsSync(BROWSER_STATE_FILE)) {
+                try {
+                    Bun.spawn({ cmd: ["open", `http://localhost:${defaultConfig.port}`] });
+                    // Create a marker file to indicate browser has been opened
+                    await mkdir(dirname(BROWSER_STATE_FILE), { recursive: true });
+                    await Bun.write(BROWSER_STATE_FILE, "opened");
+                } catch (e) {
+                    console.error("Failed to open browser automatically", e);
+                }
+            }
+        } catch (error) {
+            process.exit(1);
+        }
+    })();
 }

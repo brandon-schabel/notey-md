@@ -1,0 +1,16 @@
+{
+  "name": "notey-notey",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/archiver": "^6.0.3",
+    "archiver": "^7.0.1",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}

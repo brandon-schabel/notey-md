@@ -181,3 +181,5 @@ notes
 .test-tmp-extra
 
 failed-spec-tests.json
+
+.browser_opened

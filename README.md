@@ -29,6 +29,16 @@ bun dev
 Then, open your browser and visit:  
 [http://localhost:3001](http://localhost:3001)
 
+## Build the Binary
+
+From the server directory, run:
+
+```bash
+bun run build
+```
+
+The built binary will be located in the bin directory as `bin/notey-md`.
+
 ---
 
 ## What is Notey MD?

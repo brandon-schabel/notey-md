@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch index.ts",
+    "build": "bun run build.ts",
     "test": "bun test"
   },
   "devDependencies": {
@@ -13,5 +14,9 @@
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/archiver": "^6.0.3",
+    "archiver": "^7.0.1"
   }
 }

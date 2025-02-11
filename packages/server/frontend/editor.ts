@@ -1,11 +1,12 @@
-import { parseMarkdown } from "../markdown-parser/dist/index.js"
+import { parseMarkdown } from "../../markdown-parser/dist/index.js"
+
 
 export interface EditorOptions {
     noteName: string
     initialContent: string
 }
 
-let scheduledAutosaveHandle: number | null = null
+let scheduledAutosaveHandle: ReturnType<typeof setTimeout> | null = null;
 const autosaveDelayInMilliseconds = 1000
 
 export function initEditor(options: EditorOptions): void {
