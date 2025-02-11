@@ -83,7 +83,7 @@ The `editor.html` file is the main template that loads and initializes the edito
   - This dynamic import ensures that the latest bundled version of the editor module is loaded and
     initialized on page load.
 
-## Button Server and Module Bundling (index.ts)
+## Bun Server and Module Bundling (index.ts)
 
 The server, as implemented in `index.ts`, plays a key role in delivering the editor module:
 

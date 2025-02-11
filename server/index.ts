@@ -1,204 +1,166 @@
-import {
-    readdirSync,
-    existsSync as nodeExistsSync,
-    readFileSync as nodeReadFileSync,
-    writeFileSync as nodeWriteFileSync
-} from "node:fs";
-import { promises as fs } from "node:fs";
-import { dirname, relative, resolve, join } from "path";
-import { fileURLToPath } from "url";
-import { mkdir } from "node:fs/promises";
-import { existsSync as existsSyncNode } from "node:fs";
-import { parseMarkdown } from "../markdown-parser/src";
-import { serve } from "bun";
+import { readdirSync, existsSync as nodeExistsSync, readFileSync as nodeReadFileSync, writeFileSync as nodeWriteFileSync, Dirent } from "node:fs"
+import { promises as fs } from "node:fs"
+import { dirname, relative, resolve, join, parse as parsePath, sep } from "path"
+import { fileURLToPath } from "url"
+import { mkdir } from "node:fs/promises"
+import { existsSync as existsSyncNode } from "node:fs"
+import { parseMarkdown } from "../markdown-parser/src"
+import { serve } from "bun"
 
 export interface AppConfig {
-    port: number;
-    vaultPath: string;
+    port: number
+    vaultPath: string
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const workspace = dirname(__filename);
+const fileNameForThisModule = fileURLToPath(import.meta.url)
+const directoryForThisModule = dirname(fileNameForThisModule)
 
 export const defaultConfig: AppConfig = {
     port: 3001,
-    vaultPath:
-        process.env.NODE_ENV === "test"
-            ? resolve(workspace, "test-notes")
-            : resolve(workspace, "notes")
-};
+    vaultPath: process.env.NODE_ENV === "test"
+        ? resolve(directoryForThisModule, "test-notes")
+        : resolve(directoryForThisModule, "notes")
+}
 
-export type Server = ReturnType<typeof Bun.serve>;
+export type Server = ReturnType<typeof Bun.serve>
 
 export function createServer(config: AppConfig): Server {
     const server = Bun.serve({
         port: config.port,
         async fetch(request: Request): Promise<Response> {
-            const { method } = request;
+            const requestMethod = request.method
             try {
-                if (method === "GET") {
-                    return handleGetRequest(request, config);
-                } else if (method === "POST") {
-                    return handlePostRequest(request, config);
+                if (requestMethod === "GET") {
+                    return handleGetRequest(request, config)
+                } else if (requestMethod === "POST") {
+                    return handlePostRequest(request, config)
                 }
-                return new Response("Method Not Allowed", { status: 405 });
-            } catch (err) {
-                console.error("Server error:", err);
-                return new Response("Internal Server Error", { status: 500 });
+                return new Response("Method Not Allowed", { status: 405 })
+            } catch (error) {
+                return new Response("Internal Server Error", { status: 500 })
             }
         }
-    });
-    return server;
+    })
+    return server
 }
 
 export async function startServer(config: AppConfig): Promise<Server> {
-    await ensureVaultDirectoryExists(config.vaultPath);
-    await buildSearchIndex(config);
-    registerPlugin(examplePlugin);
-    const server = createServer(config);
-    console.log(`Server running at http://localhost:${config.port}`);
-    return server;
+    await ensureVaultDirectoryExists(config.vaultPath)
+    await buildSearchIndex(config)
+    registerPlugin(examplePlugin)
+    const server = createServer(config)
+    return server
 }
 
 async function handleGetRequest(request: Request, config: AppConfig): Promise<Response> {
-    const url = new URL(request.url);
-    const path = url.pathname;
-
-    if (path === "/") {
-        const homeHTML = renderHomePageHTML(config);
-        return new Response(homeHTML, {
-            headers: { "Content-Type": "text/html" }
-        });
+    const requestUrl = new URL(request.url)
+    const requestPath = requestUrl.pathname
+    if (requestPath === "/") {
+        const homeHTML = renderHomePageHTML(config)
+        return new Response(homeHTML, { headers: { "Content-Type": "text/html" } })
     }
-
-    if (path === "/editor.js" || path === "/notes/editor.js") {
-        const tsContent = await Bun.file("./editor.ts").text();
-        const transpiler = new Bun.Transpiler({ loader: "ts" });
-        const jsContent = await transpiler.transform(tsContent);
-        return new Response(jsContent, {
-            headers: { "Content-Type": "application/javascript" }
-        });
+    if (requestPath === "/editor.js" || requestPath === "/notes/editor.js") {
+        const tsContent = await Bun.file("./editor.ts").text()
+        const transpiler = new Bun.Transpiler({ loader: "ts" })
+        const jsContent = await transpiler.transform(tsContent)
+        return new Response(jsContent, { headers: { "Content-Type": "application/javascript" } })
     }
-
-    if (path === "/markdown-parser/dist/index.js") {
-        const jsContent = await Bun.file("../markdown-parser/dist/index.js").text();
-        return new Response(jsContent, {
-            headers: { "Content-Type": "application/javascript" }
-        });
+    if (requestPath === "/markdown-parser/dist/index.js") {
+        const jsContent = await Bun.file("../markdown-parser/dist/index.js").text()
+        return new Response(jsContent, { headers: { "Content-Type": "application/javascript" } })
     }
-
-    if (path.startsWith("/notes/")) {
-        const noteName = path.replace("/notes/", "").trim();
+    if (requestPath.startsWith("/notes/")) {
+        const noteName = requestPath.replace("/notes/", "").trim()
         if (!noteName) {
-            return new Response("No note specified.", { status: 400 });
+            return new Response("No note specified.", { status: 400 })
         }
         try {
-            const safePath = ensureSafePath(noteName, config.vaultPath);
-            let rawMarkdown = "";
+            const safePath = ensureSafePath(noteName, config.vaultPath)
+            let existingContent = ""
             if (!existsSyncNode(safePath)) {
-                const defaultContent = "# New Note\n\nStart writing here...";
-                await writeNoteToDisk(safePath, defaultContent);
-                rawMarkdown = defaultContent;
+                const defaultNoteContent = "# New Note\n\nStart writing here..."
+                await writeNoteToDisk(safePath, defaultNoteContent)
+                existingContent = defaultNoteContent
             } else {
-                rawMarkdown = await readNoteFromDisk(safePath);
+                existingContent = await readNoteFromDisk(safePath)
             }
-            rawMarkdown = fireOnNoteLoadPlugins(safePath, rawMarkdown);
-            if (url.searchParams.has("copy")) {
-                return new Response(rawMarkdown, {
-                    headers: { "Content-Type": "text/plain" }
-                });
+            const processedContent = fireOnNoteLoadPlugins(safePath, existingContent)
+            if (requestUrl.searchParams.has("copy")) {
+                return new Response(processedContent, { headers: { "Content-Type": "text/plain" } })
             }
-            return new Response(renderEditorPage(noteName, rawMarkdown), {
-                headers: { "Content-Type": "text/html" }
-            });
-        } catch (err) {
-            console.error(err);
-            return new Response("Failed to read or render note.", { status: 500 });
+            return new Response(renderEditorPage(noteName, processedContent), { headers: { "Content-Type": "text/html" } })
+        } catch (error) {
+            return new Response("Failed to read or render note.", { status: 500 })
         }
     }
-
-    if (path === "/search") {
-        const query = url.searchParams.get("query") || "";
-        return new Response(
-            JSON.stringify(searchNotes(query), null, 2),
-            { headers: { "Content-Type": "application/json" } }
-        );
+    if (requestPath === "/search") {
+        const queryParam = requestUrl.searchParams.get("query") || ""
+        return new Response(JSON.stringify(searchNotes(queryParam), null, 2), { headers: { "Content-Type": "application/json" } })
     }
-
-    return new Response("Not Found", { status: 404 });
+    return new Response("Not Found", { status: 404 })
 }
 
 async function handlePostRequest(request: Request, config: AppConfig): Promise<Response> {
-    const url = new URL(request.url);
-    const path = url.pathname;
-
-    if (path === "/notes/save") {
+    const requestUrl = new URL(request.url)
+    const requestPath = requestUrl.pathname
+    if (requestPath === "/notes/create") {
         try {
-            const body = await request.json();
-            const { filename, content } = body || {};
-
-            // Validate request body
+            const requestBody = await request.json()
+            const { filename } = requestBody || {}
             if (!filename || typeof filename !== "string") {
-                return new Response("Missing or invalid filename", {
+                return new Response("Missing or invalid filename", { status: 400, headers: { "Content-Type": "application/json" } })
+            }
+            const pathToCreate = ensureSafePath(filename, config.vaultPath)
+            if (existsSyncNode(pathToCreate)) {
+                return new Response(JSON.stringify({ success: false, error: "File already exists" }), {
                     status: 400,
                     headers: { "Content-Type": "application/json" }
-                });
+                })
             }
-
-            if (typeof content !== "string") {
-                return new Response("Missing or invalid content", {
-                    status: 400,
-                    headers: { "Content-Type": "application/json" }
-                });
-            }
-
-            // Ensure the path is safe
-            const safePath = ensureSafePath(filename, config.vaultPath);
-
-            // Write the file
-            await writeNoteToDisk(safePath, content);
-
-            // Update search index and fire plugins
-            fireOnNoteSavePlugins(safePath, content);
-            updateSearchIndexForNote(safePath, content);
-
-            return new Response(JSON.stringify({
-                success: true,
-                message: "Note saved successfully",
-                timestamp: new Date().toISOString()
-            }), {
+            await writeNoteToDisk(pathToCreate, "# New Note\n\nStart writing here...")
+            return new Response(JSON.stringify({ success: true, message: "Note created", note: filename }), {
                 status: 200,
                 headers: { "Content-Type": "application/json" }
-            });
-        } catch (err) {
-            console.error("Error saving note:", err);
-            return new Response(JSON.stringify({
-                success: false,
-                error: "Failed to save note"
-            }), {
+            })
+        } catch (error) {
+            return new Response(JSON.stringify({ success: false, error: "Failed to create note" }), {
                 status: 500,
                 headers: { "Content-Type": "application/json" }
-            });
+            })
         }
     }
-
-    return new Response("Not implemented.", { status: 501 });
+    if (requestPath === "/notes/save") {
+        try {
+            const requestBody = await request.json()
+            const { filename, content } = requestBody || {}
+            if (!filename || typeof filename !== "string") {
+                return new Response("Missing or invalid filename", { status: 400, headers: { "Content-Type": "application/json" } })
+            }
+            if (typeof content !== "string") {
+                return new Response("Missing or invalid content", { status: 400, headers: { "Content-Type": "application/json" } })
+            }
+            const safePath = ensureSafePath(filename, config.vaultPath)
+            await writeNoteToDisk(safePath, content)
+            fireOnNoteSavePlugins(safePath, content)
+            updateSearchIndexForNote(safePath, content)
+            return new Response(JSON.stringify({ success: true, message: "Note saved successfully", timestamp: new Date().toISOString() }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" }
+            })
+        } catch (error) {
+            return new Response(JSON.stringify({ success: false, error: "Failed to save note" }), {
+                status: 500,
+                headers: { "Content-Type": "application/json" }
+            })
+        }
+    }
+    return new Response("Not implemented.", { status: 501 })
 }
 
 function renderHomePageHTML(config: AppConfig): string {
-    const files = listAllMarkdownFiles(config.vaultPath);
-    const listItems = files
-        .map((filePath) => {
-            const relPath = relative(config.vaultPath, filePath);
-            return `
-      <li class="note-item">
-        <a href="/notes/${encodeURIComponent(relPath)}">${relPath}</a>
-        <button class="copy-btn" data-path="${encodeURIComponent(relPath)}">Copy</button>
-      </li>
-    `;
-        })
-        .join("");
-    return /*html*/ `
+    const filesAndDirectories = listAllMarkdownFilesAsTree(config.vaultPath)
+    const fileTreeHTML = buildNestedListMarkup(filesAndDirectories, config.vaultPath)
+    return `
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -226,31 +188,41 @@ function renderHomePageHTML(config: AppConfig): string {
         }
         .search-bar {
           display: flex;
-          justify-content: space-between;
           align-items: center;
           margin-bottom: 1rem;
         }
-        .search-bar input {
-          width: 70%;
+        #searchInput {
+          width: 100%;
           padding: 0.5rem;
           font-size: 1rem;
         }
-        .sort-menu {
-          padding: 0.5rem;
-          font-size: 1rem;
+        .search-results {
+          margin-top: 1rem;
         }
-        ul {
-          list-style: none;
-          padding: 0;
-        }
-        .note-item {
+        #newNoteForm {
+          margin-top: 1rem;
           display: flex;
-          align-items: center;
           gap: 0.5rem;
-          margin: 0.5rem 0;
+        }
+        #newNoteInput {
+          flex: 1;
+          padding: 0.4rem;
+          font-size: 1rem;
+        }
+        #createNoteButton {
+          padding: 0.5rem 0.8rem;
+          font-size: 1rem;
+          cursor: pointer;
+        }
+        .file-tree-container ul {
+          list-style-type: none;
+          padding-left: 1.5rem;
+        }
+        .file-tree-container li {
+          margin: 0.25rem 0;
         }
         .copy-btn {
-          padding: 0.4rem 0.8rem;
+          margin-left: 0.5rem;
           font-size: 0.9rem;
           cursor: pointer;
         }
@@ -259,276 +231,354 @@ function renderHomePageHTML(config: AppConfig): string {
     <body>
       <h1>My Markdown Notes</h1>
       <div class="search-bar">
-        <form action="/search" method="GET" style="flex:1; margin-right:0.5rem;">
-          <input type="text" name="query" placeholder="Search notes...">
-        </form>
-        <select class="sort-menu" onchange="alert('Sort not yet implemented!')">
-          <option>Sort by Title</option>
-          <option>Sort by Date Created</option>
-          <option>Sort by Date Modified</option>
-        </select>
+        <input type="text" id="searchInput" placeholder="Search notes by content..." />
       </div>
-      <ul>${listItems}</ul>
+      <div class="search-results" id="searchResults"></div>
+      <form id="newNoteForm">
+        <input type="text" id="newNoteInput" placeholder="New note filename (e.g. ideas.md)" />
+        <button type="submit" id="createNoteButton">Create</button>
+      </form>
+      <div class="file-tree-container">${fileTreeHTML}</div>
       <script>
-        document.addEventListener("DOMContentLoaded", () => {
-          const copyButtons = document.querySelectorAll(".copy-btn");
-          copyButtons.forEach(btn => {
-            btn.addEventListener("click", async () => {
-              const path = btn.dataset.path;
-              try {
-                const resp = await fetch("/notes/" + path + "?copy=1");
-                if (!resp.ok) {
-                  console.error("Failed to copy: " + resp.statusText);
-                  return;
-                }
-                const content = await resp.text();
-                await navigator.clipboard.writeText(content);
-                btn.textContent = "Copied!";
-                setTimeout(() => { btn.textContent = "Copy"; }, 1500);
-              } catch(e) {
-                console.error("Error copying:", e);
-              }
-            });
-          });
-        });
+        const searchInputElement = document.getElementById("searchInput")
+        const searchResultsElement = document.getElementById("searchResults")
+        searchInputElement.addEventListener("input", async () => {
+          const queryValue = searchInputElement.value.trim()
+          if (!queryValue) {
+            searchResultsElement.innerHTML = ""
+            return
+          }
+          const response = await fetch("/search?query=" + encodeURIComponent(queryValue))
+          if (!response.ok) {
+            searchResultsElement.innerHTML = "Error searching"
+            return
+          }
+          const data = await response.json()
+          if (!Array.isArray(data)) {
+            searchResultsElement.innerHTML = "No results"
+            return
+          }
+          if (data.length === 0) {
+            searchResultsElement.innerHTML = "No results"
+            return
+          }
+          let resultsMarkup = "<ul>"
+          for (const item of data) {
+            const pathParts = item.notePath.split(/\\\\|\\|\\//)
+            const lastPart = pathParts[pathParts.length - 1]
+            resultsMarkup += "<li><a href='/notes/" + encodeURIComponent(relativePathFromVault(lastPart)) + "'>" + lastPart + "</a> - " + (item.snippet || "") + "</li>"
+          }
+          resultsMarkup += "</ul>"
+          searchResultsElement.innerHTML = resultsMarkup
+        })
+        function relativePathFromVault(filename) {
+          return filename
+        }
+        const newNoteFormElement = document.getElementById("newNoteForm")
+        newNoteFormElement.addEventListener("submit", async (e) => {
+          e.preventDefault()
+          const newNoteInputElement = document.getElementById("newNoteInput")
+          const filenameValue = newNoteInputElement.value.trim()
+          if (!filenameValue) return
+          const createResponse = await fetch("/notes/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: filenameValue })
+          })
+          if (!createResponse.ok) {
+            alert("Failed to create note")
+            return
+          }
+          const createData = await createResponse.json()
+          if (createData.success) {
+            window.location.href = "/notes/" + encodeURIComponent(filenameValue)
+          } else {
+            alert(createData.error || "Failed to create note")
+          }
+        })
+        document.querySelectorAll(".copy-btn").forEach(button => {
+          button.addEventListener("click", async () => {
+            const targetPath = button.getAttribute("data-path")
+            const resp = await fetch("/notes/" + targetPath + "?copy=1")
+            if (!resp.ok) {
+              alert("Copy failed")
+              return
+            }
+            const content = await resp.text()
+            await navigator.clipboard.writeText(content)
+            button.textContent = "Copied!"
+            setTimeout(() => { button.textContent = "Copy" }, 1500)
+          })
+        })
       </script>
     </body>
     </html>
-  `;
+  `
+}
+
+function buildNestedListMarkup(entries: TreeEntry[], vaultPath: string): string {
+    let output = "<ul>"
+    for (const entry of entries) {
+        if (entry.isDirectory) {
+            output += "<li>" + entry.name + buildNestedListMarkup(entry.children || [], vaultPath) + "</li>"
+        } else {
+            output += `
+        <li>
+          <a href="/notes/${encodeURIComponent(entry.relativePath)}">${entry.name}</a>
+          <button class="copy-btn" data-path="${encodeURIComponent(entry.relativePath)}">Copy</button>
+        </li>
+      `
+        }
+    }
+    output += "</ul>"
+    return output
+}
+
+function listAllMarkdownFilesAsTree(baseDir: string): TreeEntry[] {
+    return exploreDirectoryRecursive(baseDir, "")
+}
+
+function exploreDirectoryRecursive(baseDir: string, subPath: string): TreeEntry[] {
+    const currentDir = resolve(baseDir, subPath)
+    const entries: TreeEntry[] = []
+    const dirents = readdirSync(currentDir, { withFileTypes: true })
+    for (const dirent of dirents) {
+        if (dirent.isDirectory()) {
+            const childEntries = exploreDirectoryRecursive(baseDir, join(subPath, dirent.name))
+            entries.push({ name: dirent.name, isDirectory: true, children: childEntries, relativePath: "" })
+        } else if (dirent.isFile() && dirent.name.toLowerCase().endsWith(".md")) {
+            const fullChildPath = join(subPath, dirent.name)
+            entries.push({
+                name: dirent.name,
+                isDirectory: false,
+                children: [],
+                relativePath: fullChildPath
+            })
+        }
+    }
+    entries.sort((a, b) => a.name.localeCompare(b.name))
+    return entries
+}
+
+interface TreeEntry {
+    name: string
+    isDirectory: boolean
+    children: TreeEntry[]
+    relativePath: string
 }
 
 export function renderEditorPage(noteName: string, rawMarkdown: string): string {
-    const readFile = (typeof (globalThis as any).readFileSync === "function"
+    const readFileReference = typeof (globalThis as any).readFileSync === "function"
         ? (globalThis as any).readFileSync
-        : nodeReadFileSync) as typeof nodeReadFileSync;
-    const editorHtml = readFile(resolve(workspace, "editor.html"), { encoding: "utf8" });
-    const rendered = parseMarkdown(rawMarkdown);
-
-    // Replace placeholders with JavaScript literals
-    let replaced = editorHtml
-        .replace(
-            "PLACEHOLDER_NOTE_NAME",
-            `${JSON.stringify(noteName)}`
-        )
-        .replace(
-            "PLACEHOLDER_CONTENT",
-            `${JSON.stringify(rawMarkdown)}`
-        )
-        .replace('<div id="preview"></div>', `<div id="preview">${rendered}</div>`);
-    return replaced;
+        : nodeReadFileSync
+    const editorFileContent = readFileReference(resolve(directoryForThisModule, "editor.html"), { encoding: "utf8" })
+    const renderedMarkdown = parseMarkdown(rawMarkdown)
+    let replacedHTML = editorFileContent
+        .replace("PLACEHOLDER_NOTE_NAME", `${JSON.stringify(noteName)}`)
+        .replace("PLACEHOLDER_CONTENT", `${JSON.stringify(rawMarkdown)}`)
+        .replace('<div id="preview"></div>', `<div id="preview">${renderedMarkdown}</div>`)
+    return replacedHTML
 }
 
-
-export function readNoteFromDiskSync(path: string): string {
-    return nodeReadFileSync(path, { encoding: "utf8" });
+export function readNoteFromDiskSync(notePath: string): string {
+    return nodeReadFileSync(notePath, { encoding: "utf8" })
 }
-export function writeNoteToDiskSync(path: string, content: string): void {
-    nodeWriteFileSync(path, content, { encoding: "utf8" });
+
+export function writeNoteToDiskSync(notePath: string, content: string): void {
+    nodeWriteFileSync(notePath, content, { encoding: "utf8" })
 }
 
 export async function readNoteFromDisk(notePath: string): Promise<string> {
-    try {
-        const file = Bun.file(notePath);
-        return await file.text();
-    } catch (err) {
-        throw new Error(`readNoteFromDisk failed for ${notePath}: ${err}`);
-    }
+    const fileHandle = Bun.file(notePath)
+    return await fileHandle.text()
 }
 
 export async function writeNoteToDisk(notePath: string, content: string): Promise<void> {
-    try {
-        await Bun.write(notePath, content);
-    } catch (err) {
-        throw new Error(`writeNoteToDisk failed for ${notePath}: ${err}`);
-    }
+    await Bun.write(notePath, content)
 }
 
 export function ensureSafePath(filename: string, baseDir: string): string {
-    const fullPath = resolve(baseDir, filename);
-    if (!fullPath.startsWith(resolve(baseDir) + "/")) {
-        throw new Error("Unsafe path detected!");
+    const fullResolvedPath = resolve(baseDir, filename)
+    const relativePortion = relative(baseDir, fullResolvedPath)
+    if (relativePortion.startsWith("..") || relativePortion.includes(".." + sep) || relativePortion === "") {
+        throw new Error("Unsafe path detected!")
     }
-    return fullPath;
+    return fullResolvedPath
 }
 
 export async function ensureVaultDirectoryExists(vaultPath: string): Promise<void> {
     try {
-        const stat = await fs.stat(vaultPath);
-        if (!stat.isDirectory()) {
-            throw new Error(`${vaultPath} is not a directory!`);
+        const stats = await fs.stat(vaultPath)
+        if (!stats.isDirectory()) {
+            throw new Error(vaultPath + " is not a directory!")
         }
-    } catch (err: any) {
-        if (err.code === "ENOENT") {
-            await mkdir(vaultPath, { recursive: true });
-            console.log(`Vault directory created at: ${vaultPath}`);
+    } catch (error: any) {
+        if (error.code === "ENOENT") {
+            await mkdir(vaultPath, { recursive: true })
         } else {
-            throw err;
+            throw error
         }
     }
 }
 
 interface SearchResult {
-    notePath: string;
-    snippet: string;
+    notePath: string
+    snippet: string
 }
 
-const indexMap: Map<string, Set<string>> = new Map();
+const inMemoryIndexMap: Map<string, Set<string>> = new Map()
 
 export async function buildSearchIndex(config: AppConfig): Promise<void> {
-    indexMap.clear();
-    const allFiles = listAllMarkdownFiles(config.vaultPath);
+    inMemoryIndexMap.clear()
+    const allFiles = listAllMarkdownFiles(config.vaultPath)
     for (const filePath of allFiles) {
-        const content = await readNoteFromDisk(filePath);
-        indexDocument(filePath, content);
+        const content = await readNoteFromDisk(filePath)
+        indexDocumentContent(filePath, content)
     }
-    console.log(`Search index built. ${allFiles.length} files indexed.`);
 }
 
 export function updateSearchIndexForNote(notePath: string, content: string): void {
-    removeFromIndex(notePath);
-    indexDocument(notePath, content);
+    removeFromIndex(notePath)
+    indexDocumentContent(notePath, content)
 }
 
-function indexDocument(absPath: string, content: string): void {
-    const words = content.toLowerCase().split(/[^a-z0-9_-]+/g);
-    for (const w of words) {
-        if (!w) continue;
-        if (!indexMap.has(w)) {
-            indexMap.set(w, new Set());
+function indexDocumentContent(fullPath: string, content: string): void {
+    const lowercaseWords = content.toLowerCase().split(/[^a-z0-9_-]+/g)
+    for (const w of lowercaseWords) {
+        if (!w) continue
+        if (!inMemoryIndexMap.has(w)) {
+            inMemoryIndexMap.set(w, new Set())
         }
-        indexMap.get(w)!.add(absPath);
+        inMemoryIndexMap.get(w)!.add(fullPath)
     }
 }
 
-function removeFromIndex(absPath: string) {
-    for (const [term, paths] of indexMap) {
-        if (paths.has(absPath)) {
-            paths.delete(absPath);
+function removeFromIndex(fullPath: string) {
+    for (const [word, paths] of inMemoryIndexMap) {
+        if (paths.has(fullPath)) {
+            paths.delete(fullPath)
             if (paths.size === 0) {
-                indexMap.delete(term);
+                inMemoryIndexMap.delete(word)
             }
         }
     }
 }
 
 function listAllMarkdownFiles(dirPath: string): string[] {
-    const result: string[] = [];
-    function recurse(current: string) {
-        const entries = readdirSync(current, { withFileTypes: true });
-        for (const e of entries) {
-            if (e.isDirectory()) {
-                recurse(`${current}/${e.name}`);
-            } else if (e.isFile() && e.name.toLowerCase().endsWith(".md")) {
-                result.push(`${current}/${e.name}`);
+    const allPaths: string[] = []
+    function recursiveRead(currentDir: string) {
+        const entries = readdirSync(currentDir, { withFileTypes: true })
+        for (const entry of entries) {
+            if (entry.isDirectory()) {
+                recursiveRead(join(currentDir, entry.name))
+            } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+                allPaths.push(join(currentDir, entry.name))
             }
         }
     }
-    recurse(dirPath);
-    return result;
+    recursiveRead(dirPath)
+    return allPaths
 }
 
-export function searchNotes(query: string): SearchResult[] {
-    const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!tokens.length) return [];
-    let candidatePaths: Set<string> | null = null;
+export function searchNotes(searchQuery: string): SearchResult[] {
+    const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean)
+    if (!tokens.length) return []
+    let pathCandidates: Set<string> | null = null
     for (const t of tokens) {
-        const matchedPaths = indexMap.get(t) || new Set();
-        if (!candidatePaths) {
-            candidatePaths = new Set(matchedPaths);
+        const matched = inMemoryIndexMap.get(t) || new Set()
+        if (!pathCandidates) {
+            pathCandidates = new Set(matched)
         } else {
-            for (const p of [...candidatePaths]) {
-                if (!matchedPaths.has(p)) {
-                    candidatePaths.delete(p);
+            for (const p of [...pathCandidates]) {
+                if (!matched.has(p)) {
+                    pathCandidates.delete(p)
                 }
             }
-            if (candidatePaths.size === 0) {
-                break;
+            if (pathCandidates.size === 0) {
+                break
             }
         }
     }
-    if (!candidatePaths || !candidatePaths.size) return [];
-    return [...candidatePaths].map((notePath) => {
-        const snippet = buildSnippetForFileSync(notePath, query);
-        return { notePath, snippet };
-    });
+    if (!pathCandidates || !pathCandidates.size) return []
+    return [...pathCandidates].map((noteFullPath) => {
+        return {
+            notePath: noteFullPath,
+            snippet: buildSnippetForFileSync(noteFullPath, searchQuery)
+        }
+    })
 }
 
 export function buildSnippetForFileSync(filePath: string, query: string): string {
     try {
-        const content = readNoteFromDiskSync(filePath);
-        const lines = content.split(/\r?\n/);
-        const lower = query.toLowerCase();
+        const content = readNoteFromDiskSync(filePath)
+        const lines = content.split(/\r?\n/)
+        const lowerQuery = query.toLowerCase()
         for (const line of lines) {
-            if (line.toLowerCase().includes(lower)) {
-                return line.slice(0, 100) + "...";
+            if (line.toLowerCase().includes(lowerQuery)) {
+                return line.slice(0, 100) + "..."
             }
         }
-        return lines[0] ? lines[0].slice(0, 100) + "..." : "";
+        return lines[0] ? lines[0].slice(0, 100) + "..." : ""
     } catch {
-        return "";
+        return ""
     }
 }
 
 export interface Plugin {
-    name: string;
-    onNoteLoad?: (path: string, content: string) => string;
-    onNoteSave?: (path: string, content: string) => void;
+    name: string
+    onNoteLoad?: (path: string, content: string) => string
+    onNoteSave?: (path: string, content: string) => void
 }
 
-const plugins: Plugin[] = [];
+const plugins: Plugin[] = []
 
 export function registerPlugin(plugin: Plugin): void {
-    plugins.push(plugin);
+    plugins.push(plugin)
 }
 
 function fireOnNoteLoadPlugins(path: string, content: string): string {
-    let output = content;
-    for (const plg of plugins) {
-        if (plg.onNoteLoad) {
+    let output = content
+    for (const p of plugins) {
+        if (p.onNoteLoad) {
             try {
-                const res = plg.onNoteLoad(path, output);
-                if (typeof res === "string") {
-                    output = res;
+                const result = p.onNoteLoad(path, output)
+                if (typeof result === "string") {
+                    output = result
                 }
-            } catch (err) {
-            }
+            } catch (error) { }
         }
     }
-    return output;
+    return output
 }
 
 function fireOnNoteSavePlugins(path: string, content: string): void {
-    for (const plg of plugins) {
-        if (plg.onNoteSave) {
+    for (const p of plugins) {
+        if (p.onNoteSave) {
             try {
-                plg.onNoteSave(path, content);
-            } catch (err) {
-            }
+                p.onNoteSave(path, content)
+            } catch (error) { }
         }
     }
 }
 
 const examplePlugin: Plugin = {
     name: "ExamplePlugin",
-    onNoteLoad(path, content) {
-        console.log(`[ExamplePlugin] Loading note: ${path}`);
-        if (path.toLowerCase().includes("secret")) {
-            return content + "\n<!-- SECRET NOTE DETECTED -->";
+    onNoteLoad(notePath, noteContent) {
+        if (notePath.toLowerCase().includes("secret")) {
+            return noteContent + "\n<!-- SECRET NOTE DETECTED -->"
         }
-        return content;
+        return noteContent
     },
-    onNoteSave(path, _content) {
-        console.log(`[ExamplePlugin] Saving note: ${path}`);
+    onNoteSave(notePath, noteContent) {
     }
-};
+}
 
 if (import.meta.main && process.env.NODE_ENV !== "test") {
-    (async () => {
+    ; (async () => {
         try {
-            await startServer(defaultConfig);
-        } catch (err) {
-            console.error("Error starting server:", err);
-            process.exit(1);
+            await startServer(defaultConfig)
+        } catch (error) {
+            process.exit(1)
         }
-    })();
+    })()
 }

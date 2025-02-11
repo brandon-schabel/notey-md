@@ -1,62 +1,112 @@
-import { parseMarkdown } from "../markdown-parser/dist/index.js";
+import { parseMarkdown } from "../markdown-parser/dist/index.js"
 
 export interface EditorOptions {
-    noteName: string;
-    initialContent: string;
+    noteName: string
+    initialContent: string
 }
 
-let saveTimeout: number | null = null;
-const SAVE_DELAY = 1000; // 1 second delay for autosave
+let scheduledAutosaveHandle: number | null = null
+const autosaveDelayInMilliseconds = 1000
 
 export function initEditor(options: EditorOptions): void {
-    const nameDisplay = document.getElementById("note-name-display") as HTMLElement;
-    const textArea = document.getElementById("editorTextArea") as HTMLTextAreaElement;
-    const preview = document.getElementById("preview") as HTMLElement;
-    const saveStatus = document.getElementById("save-status") as HTMLElement;
-
-    // Set the note name and initial content (values are already properly parsed)
-    nameDisplay.textContent = options.noteName;
-    textArea.value = options.initialContent;
-
-    // Setup autosave
-    textArea.addEventListener('input', () => {
-        // Update preview
-        preview.innerHTML = parseMarkdown(textArea.value);
-        
-        // Schedule save
-        if (saveTimeout) {
-            clearTimeout(saveTimeout);
+    const noteNameDisplayElement = document.getElementById("note-name-display") as HTMLElement
+    const textInputElement = document.getElementById("editorTextArea") as HTMLTextAreaElement
+    const previewElement = document.getElementById("preview") as HTMLElement
+    const saveStatusElement = document.getElementById("save-status") as HTMLElement
+    noteNameDisplayElement.textContent = options.noteName
+    textInputElement.value = options.initialContent
+    textInputElement.addEventListener("input", () => {
+        previewElement.innerHTML = parseMarkdown(textInputElement.value)
+        if (scheduledAutosaveHandle) {
+            clearTimeout(scheduledAutosaveHandle)
         }
-        
-        saveStatus.textContent = 'Saving...';
-        saveTimeout = setTimeout(() => saveContent(textArea.value), SAVE_DELAY);
-    });
-
-    async function saveContent(content: string) {
-        try {
-            const response = await fetch("/notes/save", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    filename: options.noteName,
-                    content: content
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`Save failed: ${response.statusText}`);
-            }
-
-            const now = new Date().toLocaleTimeString();
-            saveStatus.textContent = `Last saved at ${now}`;
-            saveStatus.style.color = '#4caf50'; // Green color for success
-        } catch (error) {
-            console.error('Save failed:', error);
-            saveStatus.textContent = 'Save failed! Check console for details.';
-            saveStatus.style.color = '#f44336'; // Red color for error
-        }
+        saveStatusElement.textContent = "Saving..."
+        scheduledAutosaveHandle = setTimeout(() => persistEditedNoteContentToServer(textInputElement.value), autosaveDelayInMilliseconds)
+    })
+    function persistEditedNoteContentToServer(editedContent: string) {
+        fetch("/notes/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                filename: options.noteName,
+                content: editedContent
+            })
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Save failed")
+                }
+                return response
+            })
+            .then(() => {
+                const currentTime = new Date().toLocaleTimeString()
+                saveStatusElement.textContent = "Last saved at " + currentTime
+                saveStatusElement.style.color = "#4caf50"
+            })
+            .catch((error) => {
+                saveStatusElement.textContent = "Save failed! Check console for details."
+                saveStatusElement.style.color = "#f44336"
+            })
     }
+    previewElement.innerHTML = parseMarkdown(textInputElement.value)
+    const formattingButtons = document.querySelectorAll(".md-insert-button") as NodeListOf<HTMLButtonElement>
+    formattingButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            const before = button.dataset.before || ""
+            const after = button.dataset.after || ""
+            insertMarkdownAroundSelection(textInputElement, previewElement, saveStatusElement, options.noteName, before, after)
+        })
+    })
+}
 
-    // Initial preview render
-    preview.innerHTML = parseMarkdown(textArea.value);
+function insertMarkdownAroundSelection(
+    textArea: HTMLTextAreaElement,
+    preview: HTMLElement,
+    saveStatus: HTMLElement,
+    noteName: string,
+    before: string,
+    after: string
+): void {
+    const selectionStart = textArea.selectionStart
+    const selectionEnd = textArea.selectionEnd
+    const originalValue = textArea.value
+    const selectedSubstring = originalValue.substring(selectionStart, selectionEnd)
+    const combinedValue =
+        originalValue.substring(0, selectionStart) +
+        before +
+        selectedSubstring +
+        after +
+        originalValue.substring(selectionEnd)
+    textArea.value = combinedValue
+    textArea.setSelectionRange(selectionStart + before.length, selectionEnd + before.length)
+    preview.innerHTML = parseMarkdown(textArea.value)
+    if (scheduledAutosaveHandle) {
+        clearTimeout(scheduledAutosaveHandle)
+    }
+    saveStatus.textContent = "Saving..."
+    scheduledAutosaveHandle = setTimeout(() => {
+        fetch("/notes/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                filename: noteName,
+                content: textArea.value
+            })
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Save failed")
+                }
+                return response
+            })
+            .then(() => {
+                const currentTime = new Date().toLocaleTimeString()
+                saveStatus.textContent = "Last saved at " + currentTime
+                saveStatus.style.color = "#4caf50"
+            })
+            .catch(() => {
+                saveStatus.textContent = "Save failed! Check console for details."
+                saveStatus.style.color = "#f44336"
+            })
+    }, autosaveDelayInMilliseconds)
 }

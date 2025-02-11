@@ -4,75 +4,120 @@
     <meta charset="UTF-8" />
     <title>Editing Note</title>
     <style>
+      :root {
+        --body-background-color: #ffffff;
+        --body-text-color: #222222;
+        --header-background-color: #f5f5f5;
+        --header-text-color: #000000;
+        --border-color: #dddddd;
+        --accent-color-primary: #3367d6;
+        --accent-color-secondary: #e53935;
+        --save-status-background-color: #f9f9f9;
+        --save-status-text-color: #555555;
+        --editor-background-color: #ffffff;
+        --editor-text-color: #2a2a2a;
+        --preview-background-color: #ffffff;
+        --preview-text-color: #333333;
+        --base-font-size: 16px;
+        --base-line-height: 1.6;
+        --base-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --mono-font-family: 'Fira Code', Menlo, 'Courier New', monospace;
+        --max-content-width: 60rem;
+        --transition-duration: 0.2s;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+      .dark-theme {
+        --body-background-color: #121212;
+        --body-text-color: #e0e0e0;
+        --header-background-color: #1e1e1e;
+        --header-text-color: #ffffff;
+        --border-color: #444444;
+        --save-status-background-color: #1e1e1e;
+        --save-status-text-color: #b8b8b8;
+        --editor-background-color: #1e1e1e;
+        --editor-text-color: #eeeeee;
+        --preview-background-color: #1f1f1f;
+        --preview-text-color: #dddddd;
+        --accent-color-primary: #8ab4f8;
+        --accent-color-secondary: #cf6679;
+      }
+      html,
       body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         margin: 0;
         padding: 0;
+        font-size: var(--base-font-size);
+        line-height: var(--base-line-height);
+        font-family: var(--base-font-family);
+        background-color: var(--body-background-color);
+        color: var(--body-text-color);
         height: 100vh;
-        overflow: hidden;
       }
-
-      /* Header styles */
       header {
+        background-color: var(--header-background-color);
+        color: var(--header-text-color);
         padding: 1rem;
-        background: #f5f5f5;
-        border-bottom: 1px solid #ddd;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
       }
-
-      h1 {
+      #app-title {
         margin: 0;
         font-size: 1.5rem;
       }
-
-      /* Main content layout */
-      .editor-container {
-        display: flex;
-        height: calc(100vh - 4rem); /* Subtract header height */
-        overflow: hidden;
+      #save-status {
+        background-color: var(--save-status-background-color);
+        color: var(--save-status-text-color);
+        padding: 0.25rem 0.75rem;
+        font-size: 0.9rem;
+        border: none;
+        border-radius: 4px;
+        transition: background-color var(--transition-duration) ease;
       }
-
-      /* Editor side */
-      .editor-side {
-        width: 33.333%;
-        border-right: 1px solid #ddd;
+      .main-interface-container {
+        display: flex;
+        height: calc(100vh - 4rem);
+        overflow: hidden;
+        transition: background-color var(--transition-duration) ease;
+      }
+      .text-input-column {
+        width: 33.3333%;
+        border-right: 1px solid var(--border-color);
         display: flex;
         flex-direction: column;
       }
-
       #editorTextArea {
         width: 100%;
         height: 100%;
         padding: 1rem;
         border: none;
         resize: none;
-        font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-        font-size: 14px;
+        font-family: var(--mono-font-family);
+        font-size: 0.9rem;
         line-height: 1.6;
         outline: none;
+        background-color: var(--editor-background-color);
+        color: var(--editor-text-color);
+        transition: background-color var(--transition-duration) ease, color var(--transition-duration) ease;
       }
-
-      /* Preview side */
-      .preview-side {
-        width: 66.666%;
+      .preview-column {
+        width: 66.6667%;
         overflow-y: auto;
         padding: 2rem;
+        background-color: var(--preview-background-color);
+        color: var(--preview-text-color);
+        transition: background-color var(--transition-duration) ease, color var(--transition-duration) ease;
       }
-
-      #save-status {
-        font-size: 0.9rem;
-        color: #555;
-        padding: 0.5rem 1rem;
-        background: #f9f9f9;
-        border-bottom: 1px solid #ddd;
-      }
-
-      /* Preview content styles */
       #preview {
-        max-width: 1200;
+        max-width: var(--max-content-width);
         margin: 0 auto;
         line-height: 1.6;
       }
-
       #preview h1,
       #preview h2,
       #preview h3,
@@ -82,11 +127,9 @@
         margin-top: 1.5em;
         margin-bottom: 0.5em;
       }
-
       #preview p {
         margin: 1em 0;
       }
-
       #preview pre {
         background: #f9f9f9;
         padding: 1rem;
@@ -94,70 +137,218 @@
         border-radius: 4px;
         border: 1px solid #eee;
       }
-
       #preview code.inline {
         background: #f4f4f4;
         padding: 0.2rem 0.4rem;
         border-radius: 4px;
         font-size: 0.9em;
+        font-family: var(--mono-font-family);
       }
-
       #preview img {
         max-width: 100%;
         height: auto;
+        display: block;
       }
-
       #preview blockquote {
         margin: 1em 0;
         padding-left: 1em;
         border-left: 4px solid #ddd;
         color: #666;
       }
-
       #preview table {
         border-collapse: collapse;
         width: 100%;
         margin: 1em 0;
       }
-
       #preview th,
       #preview td {
         border: 1px solid #ddd;
         padding: 0.5rem;
       }
-
       #preview th {
         background: #f5f5f5;
+      }
+      @media (max-width: 800px) {
+        .main-interface-container {
+          flex-direction: column;
+        }
+        .text-input-column,
+        .preview-column {
+          width: 100%;
+          height: 50vh;
+        }
+        .preview-column {
+          padding: 1rem;
+        }
+      }
+      .theme-toggle-button {
+        background-color: transparent;
+        color: var(--header-text-color);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+        transition: background-color var(--transition-duration) ease;
+      }
+      .theme-toggle-button:hover {
+        background-color: rgba(0, 0, 0, 0.07);
+      }
+      .command-palette-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+      }
+      .command-palette-box {
+        width: 90%;
+        max-width: 500px;
+        background: var(--body-background-color);
+        color: var(--body-text-color);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        display: flex;
+        flex-direction: column;
+      }
+      .command-palette-input {
+        border: none;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 1rem;
+        padding: 1rem;
+        outline: none;
+        background: transparent;
+        color: inherit;
+      }
+      .command-palette-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .command-palette-item {
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        transition: background-color var(--transition-duration) ease;
+      }
+      .command-palette-item:hover {
+        background-color: rgba(0, 0, 0, 0.07);
+      }
+      .command-palette-active {
+        display: flex;
+      }
+      .markdown-insert-toolbar {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .md-insert-button {
+        border: 1px solid var(--border-color);
+        background: transparent;
+        padding: 0.3rem 0.6rem;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .md-insert-button:hover {
+        background-color: rgba(0, 0, 0, 0.07);
       }
     </style>
   </head>
   <body>
     <header>
-      <h1>Editing: <span id="note-name-display"></span></h1>
+      <h1 id="app-title">Editing: <span id="note-name-display"></span></h1>
+      <button class="theme-toggle-button" id="themeToggleButton">Toggle Theme</button>
       <div id="save-status"></div>
     </header>
-
-    <div class="editor-container">
-      <div class="editor-side">
+    <div class="main-interface-container">
+      <div class="text-input-column">
+        <div class="markdown-insert-toolbar">
+          <button class="md-insert-button" data-before="**" data-after="**">Bold</button>
+          <button class="md-insert-button" data-before="*" data-after="*">Italic</button>
+          <button class="md-insert-button" data-before="\`" data-after="\`">Inline Code</button>
+          <button class="md-insert-button" data-before="```\n" data-after="\n```">Code Block</button>
+          <button class="md-insert-button" data-before="[ ] " data-after="">Checkbox</button>
+        </div>
         <textarea id="editorTextArea" spellcheck="true"></textarea>
       </div>
-      <div class="preview-side">
+      <div class="preview-column">
         <div id="preview"></div>
       </div>
     </div>
-
+    <div class="command-palette-overlay" id="commandPaletteOverlay">
+      <div class="command-palette-box">
+        <input type="text" class="command-palette-input" id="commandPaletteInput" placeholder="Type a command..." />
+        <ul class="command-palette-list" id="commandPaletteList"></ul>
+      </div>
+    </div>
     <script type="module">
-      // Import the markdown parser
-      import { parseMarkdown } from '/markdown-parser/dist/index.js';
-      import { initEditor } from './editor.js';
-
-      // Make parseMarkdown available globally for the editor
-      window.parseMarkdown = parseMarkdown;
-
+      import { parseMarkdown } from '/markdown-parser/dist/index.js'
+      import { initEditor } from './editor.js'
+      window.parseMarkdown = parseMarkdown
       initEditor({
         noteName: PLACEHOLDER_NOTE_NAME,
         initialContent: PLACEHOLDER_CONTENT
-      });
+      })
+      const themeToggleButtonElement = document.getElementById('themeToggleButton')
+      themeToggleButtonElement?.addEventListener('click', () => {
+        document.body.classList.toggle('dark-theme')
+      })
+      document.addEventListener('keydown', (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+          event.preventDefault()
+          toggleCommandPalette()
+        } else if (event.key === 'Escape') {
+          closeCommandPaletteIfOpen()
+        }
+      })
+      const commandPaletteOverlayElement = document.getElementById('commandPaletteOverlay')
+      const commandPaletteInputElement = document.getElementById('commandPaletteInput')
+      const commandPaletteListElement = document.getElementById('commandPaletteList')
+      function toggleCommandPalette() {
+        if (commandPaletteOverlayElement.style.display === 'flex') {
+          commandPaletteOverlayElement.style.display = 'none'
+        } else {
+          commandPaletteOverlayElement.style.display = 'flex'
+          commandPaletteInputElement.value = ''
+          commandPaletteInputElement.focus()
+          renderCommandPaletteItems('')
+        }
+      }
+      function closeCommandPaletteIfOpen() {
+        if (commandPaletteOverlayElement.style.display === 'flex') {
+          commandPaletteOverlayElement.style.display = 'none'
+        }
+      }
+      function renderCommandPaletteItems(query) {
+        const possibleCommands = ['Bold', 'Italic', 'Code Block', 'Checkbox']
+        const filtered = possibleCommands.filter((cmd) => cmd.toLowerCase().includes(query.toLowerCase()))
+        commandPaletteListElement.innerHTML = ''
+        filtered.forEach((cmd) => {
+          const li = document.createElement('li')
+          li.className = 'command-palette-item'
+          li.textContent = cmd
+          li.onclick = () => handleCommandPaletteSelection(cmd)
+          commandPaletteListElement.appendChild(li)
+        })
+      }
+      function handleCommandPaletteSelection(commandName) {
+        closeCommandPaletteIfOpen()
+      }
+      commandPaletteInputElement?.addEventListener('input', (e) => {
+        renderCommandPaletteItems(e.target.value)
+      })
+      commandPaletteOverlayElement.addEventListener('click', (e) => {
+        if (e.target === commandPaletteOverlayElement) {
+          closeCommandPaletteIfOpen()
+        }
+      })
     </script>
   </body>
 </html>
