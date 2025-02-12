@@ -3,7 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <title>Notey MD</title>
-    <!-- Link our global stylesheet -->
     <link rel="stylesheet" href="/app/global.css" />
   </head>
   <body class="index-page">
@@ -30,106 +29,83 @@
     <div class="file-tree-container">PLACEHOLDER_FILE_TREE</div>
 
     <script>
-      // We'll store all notes in memory for local search.
-      let allNotes = []
+      let allNotes = [];
 
-      // Grab page elements
-      const searchInput = document.getElementById('searchInput')
-      const searchResults = document.getElementById('searchResults')
-      const newNoteForm = document.getElementById('newNoteForm')
-      const newNoteInput = document.getElementById('newNoteInput')
-      const themeToggleBtn = document.getElementById('themeToggleButton')
+      const searchInput = document.getElementById("searchInput");
+      const searchResults = document.getElementById("searchResults");
+      const newNoteForm = document.getElementById("newNoteForm");
+      const newNoteInput = document.getElementById("newNoteInput");
+      const themeToggleBtn = document.getElementById("themeToggleButton");
 
-      // 1) Fetch all notes on load
-      window.addEventListener('DOMContentLoaded', async () => {
-        try {
-          const response = await fetch('/notes/all')
-          if (!response.ok) {
-            console.error('Failed to load notes from /notes/all')
-            return
-          }
-          allNotes = await response.json()
-        } catch (err) {
-          console.error('Error fetching notes:', err)
-        }
-      })
+      // Load the full note list from /notes/all (if you have that endpoint) - omitted here
+      // For demonstration, we won't fetch notes. You could implement a real endpoint.
 
-      // 2) Implement local search on input
-      searchInput.addEventListener('input', () => {
-        const query = searchInput.value.trim().toLowerCase()
+      searchInput.addEventListener("input", () => {
+        const query = searchInput.value.trim().toLowerCase();
         if (!query) {
-          searchResults.innerHTML = ''
-          return
+          searchResults.innerHTML = "";
+          return;
         }
-        // Filter the allNotes array by content or filename
-        const filtered = allNotes.filter(
-          (note) => note.content.toLowerCase().includes(query) || note.name.toLowerCase().includes(query)
-        )
-        if (!filtered.length) {
-          searchResults.innerHTML = '<p>No results</p>'
-          return
-        }
-        let resultsMarkup = '<ul>'
-        for (const item of filtered) {
-          // item.relativePath is how we open the note
-          resultsMarkup += `
-            <li>
-              <a href="/notes/${encodeURIComponent(item.relativePath)}">${item.name}</a>
-              - ${escapeHtml(item.content.slice(0, 80))}...
-            </li>`
-        }
-        resultsMarkup += '</ul>'
-        searchResults.innerHTML = resultsMarkup
-      })
+        // For a real offline approach, we might have preloaded "allNotes" with content
+        // If no real approach, show a message or do server-based search:
+        fetch("/search?query=" + encodeURIComponent(query))
+          .then((r) => r.json())
+          .then((json) => {
+            if (!json.length) {
+              searchResults.innerHTML = "<p>No results</p>";
+              return;
+            }
+            let resultsMarkup = "<ul>";
+            for (const item of json) {
+              resultsMarkup += `
+                <li>
+                  <a href="/notes/${encodeURIComponent(item.notePath)}">${item.notePath}</a>
+                  - ${escapeHtml(item.snippet)}
+                </li>`;
+            }
+            resultsMarkup += "</ul>";
+            searchResults.innerHTML = resultsMarkup;
+          });
+      });
 
-      // 3) Create note form
-      newNoteForm.addEventListener('submit', async (e) => {
-        e.preventDefault()
-        const filenameValue = newNoteInput.value.trim()
-        if (!filenameValue) return
+      newNoteForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const filenameValue = newNoteInput.value.trim();
+        if (!filenameValue) return;
         try {
-          const createResponse = await fetch('/notes/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename: filenameValue })
-          })
-          if (!createResponse.ok) {
-            alert('Failed to create note')
-            return
+          const resp = await fetch("/notes/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: filenameValue }),
+          });
+          if (!resp.ok) {
+            alert("Failed to create note");
+            return;
           }
-          const createData = await createResponse.json()
-          if (createData.success) {
-            // Optionally update our allNotes array
-            allNotes.push({
-              name: filenameValue,
-              relativePath: filenameValue,
-              content: '# New Note\n\nStart writing here...'
-            })
-            // Navigate to the editor
-            window.location.href = '/notes/' + encodeURIComponent(filenameValue)
+          const data = await resp.json();
+          if (data.success) {
+            window.location.href = "/notes/" + encodeURIComponent(filenameValue);
           } else {
-            alert(createData.error || 'Failed to create note')
+            alert(data.error || "Failed to create note");
           }
         } catch (err) {
-          alert('Error creating note')
+          alert("Error creating note");
         }
-      })
+      });
 
-      // 4) Theme toggle
       if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', () => {
-          document.body.classList.toggle('dark-theme')
-        })
+        themeToggleBtn.addEventListener("click", () => {
+          document.body.classList.toggle("dark-theme");
+        });
       }
 
-      // Utility to escape HTML for snippet display
       function escapeHtml(str) {
         return str
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#039;')
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
       }
     </script>
   </body>

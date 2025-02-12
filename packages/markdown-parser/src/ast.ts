@@ -1,4 +1,45 @@
-// Union type for all Markdown nodes
+
+export interface RefDefinition {
+  label: string
+  url: string
+  title?: string
+}
+
+type NodeBase<T extends string> = { type: T }
+type NodeWithChildren<T extends string, U extends MarkdownNode[]> = NodeBase<T> & { children: U }
+type NodeWithOptionalRaw<T extends string, U extends MarkdownNode[]> = NodeWithChildren<T, U> & { _raw?: string }
+type NodeWithValue<T extends string> = NodeBase<T> & { value: string }
+type NodeWithCode<T extends string> = NodeBase<T> & { code: string }
+
+export type DocumentNode = NodeWithChildren<"document", MarkdownNode[]> & {
+  refDefinitions: Map<string, RefDefinition>
+}
+
+export type ParagraphNode = NodeWithOptionalRaw<"paragraph", MarkdownNode[]>
+export type HeadingNode = NodeWithChildren<"heading", MarkdownNode[]> & { level: number }
+export type BlockquoteNode = NodeWithChildren<"blockquote", MarkdownNode[]>
+export type ListNode = NodeWithChildren<"list", ListItemNode[]> & {
+  ordered: boolean
+  start: number | null
+  tight: boolean
+}
+export type ListItemNode = NodeWithChildren<"list_item", MarkdownNode[]> & { spread?: boolean }
+export type CodeBlockNode = NodeBase<"code_block"> & {
+  language?: string
+  value: string
+  fence?: string
+}
+export type ThematicBreakNode = NodeBase<"thematic_break">
+export type HtmlBlockNode = NodeBase<"html_block"> & { value: string }
+export type TextNode = NodeWithValue<"text">
+export type EmphasisNode = NodeWithChildren<"emphasis", MarkdownNode[]>
+export type StrongNode = NodeWithChildren<"strong", MarkdownNode[]>
+export type CodeSpanNode = NodeWithCode<"code_span">
+export type LinkNode = NodeWithChildren<"link", MarkdownNode[]> & { url: string; title?: string }
+export type ImageNode = NodeBase<"image"> & { url: string; title?: string; alt: string }
+export type LineBreakNode = NodeBase<"linebreak">
+export type RawHtmlNode = NodeBase<"raw_html"> & { content: string }
+
 export type MarkdownNode =
   | DocumentNode
   | ParagraphNode
@@ -16,111 +57,4 @@ export type MarkdownNode =
   | LinkNode
   | ImageNode
   | LineBreakNode
-  | RawHtmlNode;
-
-// AST Node Definitions
-
-export interface DocumentNode {
-  type: 'document';
-  children: MarkdownNode[];
-  refDefinitions: Map<string, RefDefinition>;
-}
-
-export interface ParagraphNode {
-  type: 'paragraph';
-  children: MarkdownNode[];
-  // Optionally, store raw text prior to inline parsing
-  _raw?: string;
-}
-
-export interface HeadingNode {
-  type: 'heading';
-  level: number;
-  children: MarkdownNode[];
-}
-
-export interface BlockquoteNode {
-  type: 'blockquote';
-  children: MarkdownNode[];
-}
-
-export interface ListNode {
-  type: 'list';
-  ordered: boolean;
-  start: number | null;
-  tight: boolean;
-  children: ListItemNode[];
-}
-
-export interface ListItemNode {
-  type: 'list_item';
-  children: MarkdownNode[];
-  spread?: boolean; // for loose/tight determination
-}
-
-export interface CodeBlockNode {
-  type: 'code_block';
-  language?: string;
-  value: string;
-  fence?: string; // fence marker for later checks
-}
-
-export interface ThematicBreakNode {
-  type: 'thematic_break';
-}
-
-export interface HtmlBlockNode {
-  type: 'html_block';
-  value: string;
-}
-
-export interface TextNode {
-  type: 'text';
-  value: string;
-}
-
-export interface EmphasisNode {
-  type: 'emphasis';
-  children: MarkdownNode[];
-}
-
-export interface StrongNode {
-  type: 'strong';
-  children: MarkdownNode[];
-}
-
-export interface CodeSpanNode {
-  type: 'code_span';
-  code: string;
-}
-
-export interface LinkNode {
-  type: 'link';
-  url: string;
-  title?: string;
-  children: MarkdownNode[];
-}
-
-export interface ImageNode {
-  type: 'image';
-  url: string;
-  title?: string;
-  alt: string;
-}
-
-export interface LineBreakNode {
-  type: 'linebreak';
-}
-
-export interface RawHtmlNode {
-  type: 'raw_html';
-  content: string;
-}
-
-// Reference definition for links
-export interface RefDefinition {
-  label: string;
-  url: string;
-  title?: string;
-}
-
+  | RawHtmlNode
