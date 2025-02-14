@@ -1,0 +1,154 @@
+[
+    {
+        "markdown": "***\n---\n___\n",
+        "html": "<hr />\n<hr />\n<hr />\n",
+        "example": 43,
+        "start_line": 879,
+        "end_line": 887,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "+++\n",
+        "html": "<p>+++</p>\n",
+        "example": 44,
+        "start_line": 892,
+        "end_line": 896,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "===\n",
+        "html": "<p>===</p>\n",
+        "example": 45,
+        "start_line": 899,
+        "end_line": 903,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "--\n**\n__\n",
+        "html": "<p>--\n**\n__</p>\n",
+        "example": 46,
+        "start_line": 908,
+        "end_line": 916,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": " ***\n  ***\n   ***\n",
+        "html": "<hr />\n<hr />\n<hr />\n",
+        "example": 47,
+        "start_line": 921,
+        "end_line": 929,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "    ***\n",
+        "html": "<pre><code>***\n</code></pre>\n",
+        "example": 48,
+        "start_line": 934,
+        "end_line": 939,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "Foo\n    ***\n",
+        "html": "<p>Foo\n***</p>\n",
+        "example": 49,
+        "start_line": 942,
+        "end_line": 948,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "_____________________________________\n",
+        "html": "<hr />\n",
+        "example": 50,
+        "start_line": 953,
+        "end_line": 957,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": " - - -\n",
+        "html": "<hr />\n",
+        "example": 51,
+        "start_line": 962,
+        "end_line": 966,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": " **  * ** * ** * **\n",
+        "html": "<hr />\n",
+        "example": 52,
+        "start_line": 969,
+        "end_line": 973,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "-     -      -      -\n",
+        "html": "<hr />\n",
+        "example": 53,
+        "start_line": 976,
+        "end_line": 980,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "- - - -    \n",
+        "html": "<hr />\n",
+        "example": 54,
+        "start_line": 985,
+        "end_line": 989,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "_ _ _ _ a\n\na------\n\n---a---\n",
+        "html": "<p>_ _ _ _ a</p>\n<p>a------</p>\n<p>---a---</p>\n",
+        "example": 55,
+        "start_line": 994,
+        "end_line": 1004,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": " *-*\n",
+        "html": "<p><em>-</em></p>\n",
+        "example": 56,
+        "start_line": 1010,
+        "end_line": 1014,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "- foo\n***\n- bar\n",
+        "html": "<ul>\n<li>foo</li>\n</ul>\n<hr />\n<ul>\n<li>bar</li>\n</ul>\n",
+        "example": 57,
+        "start_line": 1019,
+        "end_line": 1031,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "Foo\n***\nbar\n",
+        "html": "<p>Foo</p>\n<hr />\n<p>bar</p>\n",
+        "example": 58,
+        "start_line": 1036,
+        "end_line": 1044,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "Foo\n---\nbar\n",
+        "html": "<h2>Foo</h2>\n<p>bar</p>\n",
+        "example": 59,
+        "start_line": 1053,
+        "end_line": 1060,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "* Foo\n* * *\n* Bar\n",
+        "html": "<ul>\n<li>Foo</li>\n</ul>\n<hr />\n<ul>\n<li>Bar</li>\n</ul>\n",
+        "example": 60,
+        "start_line": 1066,
+        "end_line": 1078,
+        "section": "Thematic breaks"
+    },
+    {
+        "markdown": "- Foo\n- * * *\n",
+        "html": "<ul>\n<li>Foo</li>\n<li>\n<hr />\n</li>\n</ul>\n",
+        "example": 61,
+        "start_line": 1083,
+        "end_line": 1093,
+        "section": "Thematic breaks"
+    }
+]

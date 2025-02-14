@@ -1,0 +1,98 @@
+[
+    {
+        "markdown": "    a simple\n      indented code block\n",
+        "html": "<pre><code>a simple\n  indented code block\n</code></pre>\n",
+        "example": 107,
+        "start_line": 1749,
+        "end_line": 1756,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "  - foo\n\n    bar\n",
+        "html": "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n",
+        "example": 108,
+        "start_line": 1763,
+        "end_line": 1774,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "1.  foo\n\n    - bar\n",
+        "html": "<ol>\n<li>\n<p>foo</p>\n<ul>\n<li>bar</li>\n</ul>\n</li>\n</ol>\n",
+        "example": 109,
+        "start_line": 1777,
+        "end_line": 1790,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "    <a/>\n    *hi*\n\n    - one\n",
+        "html": "<pre><code>&lt;a/&gt;\n*hi*\n\n- one\n</code></pre>\n",
+        "example": 110,
+        "start_line": 1797,
+        "end_line": 1808,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "    chunk1\n\n    chunk2\n  \n \n \n    chunk3\n",
+        "html": "<pre><code>chunk1\n\nchunk2\n\n\n\nchunk3\n</code></pre>\n",
+        "example": 111,
+        "start_line": 1813,
+        "end_line": 1830,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "    chunk1\n      \n      chunk2\n",
+        "html": "<pre><code>chunk1\n  \n  chunk2\n</code></pre>\n",
+        "example": 112,
+        "start_line": 1836,
+        "end_line": 1845,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "Foo\n    bar\n\n",
+        "html": "<p>Foo\nbar</p>\n",
+        "example": 113,
+        "start_line": 1851,
+        "end_line": 1858,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "    foo\nbar\n",
+        "html": "<pre><code>foo\n</code></pre>\n<p>bar</p>\n",
+        "example": 114,
+        "start_line": 1865,
+        "end_line": 1872,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "# Heading\n    foo\nHeading\n------\n    foo\n----\n",
+        "html": "<h1>Heading</h1>\n<pre><code>foo\n</code></pre>\n<h2>Heading</h2>\n<pre><code>foo\n</code></pre>\n<hr />\n",
+        "example": 115,
+        "start_line": 1878,
+        "end_line": 1893,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "        foo\n    bar\n",
+        "html": "<pre><code>    foo\nbar\n</code></pre>\n",
+        "example": 116,
+        "start_line": 1898,
+        "end_line": 1905,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "\n    \n    foo\n    \n\n",
+        "html": "<pre><code>foo\n</code></pre>\n",
+        "example": 117,
+        "start_line": 1911,
+        "end_line": 1920,
+        "section": "Indented code blocks"
+    },
+    {
+        "markdown": "    foo  \n",
+        "html": "<pre><code>foo  \n</code></pre>\n",
+        "example": 118,
+        "start_line": 1925,
+        "end_line": 1930,
+        "section": "Indented code blocks"
+    }
+]

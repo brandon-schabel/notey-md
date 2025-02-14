@@ -19,8 +19,6 @@ export function initEditor(options: EditorOptions): void {
 
     textInputElement.addEventListener("input", () => {
         previewElement.innerHTML = parseMarkdown(textInputElement.value);
-
-        // Debounce autosave
         if (scheduledAutosaveHandle) {
             clearTimeout(scheduledAutosaveHandle);
         }
@@ -51,16 +49,14 @@ export function initEditor(options: EditorOptions): void {
                 saveStatusElement.textContent = "Last saved at " + currentTime;
                 saveStatusElement.style.color = "#4caf50";
             })
-            .catch((error) => {
+            .catch(() => {
                 saveStatusElement.textContent = "Save failed! Check console for details.";
                 saveStatusElement.style.color = "#f44336";
             });
     }
 
-    // Initial preview rendering
     previewElement.innerHTML = parseMarkdown(textInputElement.value);
 
-    // Formatting toolbar
     const formattingButtons = document.querySelectorAll(".md-insert-button") as NodeListOf<HTMLButtonElement>;
     formattingButtons.forEach((button) => {
         button.addEventListener("click", () => {
@@ -75,6 +71,33 @@ export function initEditor(options: EditorOptions): void {
                 after,
             );
         });
+    });
+
+    const deleteNoteButtonElement = document.getElementById("deleteNoteButton") as HTMLButtonElement | null;
+    deleteNoteButtonElement?.addEventListener("click", () => {
+        const userConfirmedDeletion = confirm("Delete \"" + options.noteName + "\"?");
+        if (!userConfirmedDeletion) return;
+        fetch("/notes/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: options.noteName }),
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Delete failed");
+                }
+                return response.json();
+            })
+            .then((data) => {
+                if (!data.success) {
+                    throw new Error(data.error || "Delete failed");
+                }
+                window.location.href = "/";
+            })
+            .catch(() => {
+                saveStatusElement.textContent = "Delete failed! Check console for details.";
+                saveStatusElement.style.color = "#f44336";
+            });
     });
 }
 
@@ -100,8 +123,6 @@ function insertMarkdownAroundSelection(
     textArea.value = combinedValue;
     textArea.setSelectionRange(selectionStart + before.length, selectionEnd + before.length);
     preview.innerHTML = parseMarkdown(textArea.value);
-
-    // Debounce autosave
     if (scheduledAutosaveHandle) {
         clearTimeout(scheduledAutosaveHandle);
     }

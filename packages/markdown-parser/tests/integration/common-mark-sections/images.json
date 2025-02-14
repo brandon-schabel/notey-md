@@ -1,0 +1,178 @@
+[
+    {
+        "markdown": "![foo](/url \"title\")\n",
+        "html": "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n",
+        "example": 572,
+        "start_line": 8541,
+        "end_line": 8545,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo *bar*]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n",
+        "html": "<p><img src=\"train.jpg\" alt=\"foo bar\" title=\"train &amp; tracks\" /></p>\n",
+        "example": 573,
+        "start_line": 8548,
+        "end_line": 8554,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo ![bar](/url)](/url2)\n",
+        "html": "<p><img src=\"/url2\" alt=\"foo bar\" /></p>\n",
+        "example": 574,
+        "start_line": 8557,
+        "end_line": 8561,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo [bar](/url)](/url2)\n",
+        "html": "<p><img src=\"/url2\" alt=\"foo bar\" /></p>\n",
+        "example": 575,
+        "start_line": 8564,
+        "end_line": 8568,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo *bar*][]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n",
+        "html": "<p><img src=\"train.jpg\" alt=\"foo bar\" title=\"train &amp; tracks\" /></p>\n",
+        "example": 576,
+        "start_line": 8578,
+        "end_line": 8584,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo *bar*][foobar]\n\n[FOOBAR]: train.jpg \"train & tracks\"\n",
+        "html": "<p><img src=\"train.jpg\" alt=\"foo bar\" title=\"train &amp; tracks\" /></p>\n",
+        "example": 577,
+        "start_line": 8587,
+        "end_line": 8593,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo](train.jpg)\n",
+        "html": "<p><img src=\"train.jpg\" alt=\"foo\" /></p>\n",
+        "example": 578,
+        "start_line": 8596,
+        "end_line": 8600,
+        "section": "Images"
+    },
+    {
+        "markdown": "My ![foo bar](/path/to/train.jpg  \"title\"   )\n",
+        "html": "<p>My <img src=\"/path/to/train.jpg\" alt=\"foo bar\" title=\"title\" /></p>\n",
+        "example": 579,
+        "start_line": 8603,
+        "end_line": 8607,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo](<url>)\n",
+        "html": "<p><img src=\"url\" alt=\"foo\" /></p>\n",
+        "example": 580,
+        "start_line": 8610,
+        "end_line": 8614,
+        "section": "Images"
+    },
+    {
+        "markdown": "![](/url)\n",
+        "html": "<p><img src=\"/url\" alt=\"\" /></p>\n",
+        "example": 581,
+        "start_line": 8617,
+        "end_line": 8621,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo][bar]\n\n[bar]: /url\n",
+        "html": "<p><img src=\"/url\" alt=\"foo\" /></p>\n",
+        "example": 582,
+        "start_line": 8626,
+        "end_line": 8632,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo][bar]\n\n[BAR]: /url\n",
+        "html": "<p><img src=\"/url\" alt=\"foo\" /></p>\n",
+        "example": 583,
+        "start_line": 8635,
+        "end_line": 8641,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo][]\n\n[foo]: /url \"title\"\n",
+        "html": "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n",
+        "example": 584,
+        "start_line": 8646,
+        "end_line": 8652,
+        "section": "Images"
+    },
+    {
+        "markdown": "![*foo* bar][]\n\n[*foo* bar]: /url \"title\"\n",
+        "html": "<p><img src=\"/url\" alt=\"foo bar\" title=\"title\" /></p>\n",
+        "example": 585,
+        "start_line": 8655,
+        "end_line": 8661,
+        "section": "Images"
+    },
+    {
+        "markdown": "![Foo][]\n\n[foo]: /url \"title\"\n",
+        "html": "<p><img src=\"/url\" alt=\"Foo\" title=\"title\" /></p>\n",
+        "example": 586,
+        "start_line": 8666,
+        "end_line": 8672,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo] \n[]\n\n[foo]: /url \"title\"\n",
+        "html": "<p><img src=\"/url\" alt=\"foo\" title=\"title\" />\n[]</p>\n",
+        "example": 587,
+        "start_line": 8678,
+        "end_line": 8686,
+        "section": "Images"
+    },
+    {
+        "markdown": "![foo]\n\n[foo]: /url \"title\"\n",
+        "html": "<p><img src=\"/url\" alt=\"foo\" title=\"title\" /></p>\n",
+        "example": 588,
+        "start_line": 8691,
+        "end_line": 8697,
+        "section": "Images"
+    },
+    {
+        "markdown": "![*foo* bar]\n\n[*foo* bar]: /url \"title\"\n",
+        "html": "<p><img src=\"/url\" alt=\"foo bar\" title=\"title\" /></p>\n",
+        "example": 589,
+        "start_line": 8700,
+        "end_line": 8706,
+        "section": "Images"
+    },
+    {
+        "markdown": "![[foo]]\n\n[[foo]]: /url \"title\"\n",
+        "html": "<p>![[foo]]</p>\n<p>[[foo]]: /url &quot;title&quot;</p>\n",
+        "example": 590,
+        "start_line": 8711,
+        "end_line": 8718,
+        "section": "Images"
+    },
+    {
+        "markdown": "![Foo]\n\n[foo]: /url \"title\"\n",
+        "html": "<p><img src=\"/url\" alt=\"Foo\" title=\"title\" /></p>\n",
+        "example": 591,
+        "start_line": 8723,
+        "end_line": 8729,
+        "section": "Images"
+    },
+    {
+        "markdown": "!\\[foo]\n\n[foo]: /url \"title\"\n",
+        "html": "<p>![foo]</p>\n",
+        "example": 592,
+        "start_line": 8735,
+        "end_line": 8741,
+        "section": "Images"
+    },
+    {
+        "markdown": "\\![foo]\n\n[foo]: /url \"title\"\n",
+        "html": "<p>!<a href=\"/url\" title=\"title\">foo</a></p>\n",
+        "example": 593,
+        "start_line": 8747,
+        "end_line": 8753,
+        "section": "Images"
+    }
+]

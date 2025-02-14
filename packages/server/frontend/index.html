@@ -11,6 +11,15 @@
     <!-- Optional Theme Toggle -->
     <button type="button" id="themeToggleButton">Toggle Theme</button>
 
+    <!-- Reindex button -->
+    <button id="reindexButton">Reindex Search</button>
+
+    <!-- Create new note form -->
+    <form id="newNoteForm">
+      <input type="text" id="newNoteInput" placeholder="New note filename (e.g. ideas.md)" />
+      <button type="submit" id="createNoteButton">Create</button>
+    </form>
+ <hr />
     <!-- Search bar -->
     <div class="search-bar">
       <input type="text" id="searchInput" placeholder="Search notes by content..." />
@@ -19,93 +28,121 @@
     <!-- Client-side filtered results appear here -->
     <div class="search-results" id="searchResults"></div>
 
-    <!-- Create new note form -->
-    <form id="newNoteForm">
-      <input type="text" id="newNoteInput" placeholder="New note filename (e.g. ideas.md)" />
-      <button type="submit" id="createNoteButton">Create</button>
-    </form>
+    <hr />
 
     <!-- The file tree is inserted here by server rendering -->
     <div class="file-tree-container">PLACEHOLDER_FILE_TREE</div>
 
     <script>
-      let allNotes = [];
+      let allNotes = []
 
-      const searchInput = document.getElementById("searchInput");
-      const searchResults = document.getElementById("searchResults");
-      const newNoteForm = document.getElementById("newNoteForm");
-      const newNoteInput = document.getElementById("newNoteInput");
-      const themeToggleBtn = document.getElementById("themeToggleButton");
+      const searchInput = document.getElementById('searchInput')
+      const searchResults = document.getElementById('searchResults')
+      const newNoteForm = document.getElementById('newNoteForm')
+      const newNoteInput = document.getElementById('newNoteInput')
+      const themeToggleBtn = document.getElementById('themeToggleButton')
+      const reindexButton = document.getElementById('reindexButton')
 
       // Load the full note list from /notes/all (if you have that endpoint) - omitted here
       // For demonstration, we won't fetch notes. You could implement a real endpoint.
 
-      searchInput.addEventListener("input", () => {
-        const query = searchInput.value.trim().toLowerCase();
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase()
         if (!query) {
-          searchResults.innerHTML = "";
-          return;
+          searchResults.innerHTML = ''
+          return
         }
         // For a real offline approach, we might have preloaded "allNotes" with content
         // If no real approach, show a message or do server-based search:
-        fetch("/search?query=" + encodeURIComponent(query))
+        fetch('/search?query=' + encodeURIComponent(query))
           .then((r) => r.json())
           .then((json) => {
             if (!json.length) {
-              searchResults.innerHTML = "<p>No results</p>";
-              return;
+              searchResults.innerHTML = '<p>No results</p>'
+              return
             }
-            let resultsMarkup = "<ul>";
+            let resultsMarkup = '<ul>'
             for (const item of json) {
               resultsMarkup += `
                 <li>
                   <a href="/notes/${encodeURIComponent(item.notePath)}">${item.notePath}</a>
                   - ${escapeHtml(item.snippet)}
-                </li>`;
+                </li>`
             }
-            resultsMarkup += "</ul>";
-            searchResults.innerHTML = resultsMarkup;
-          });
-      });
+            resultsMarkup += '</ul>'
+            searchResults.innerHTML = resultsMarkup
+          })
+      })
 
-      newNoteForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const filenameValue = newNoteInput.value.trim();
-        if (!filenameValue) return;
+      newNoteForm.addEventListener('submit', async (e) => {
+        e.preventDefault()
+        let filenameValue = newNoteInput.value.trim()
+        if (!filenameValue) {
+          alert('Please enter a filename.')
+          return
+        }
+
+        if (!filenameValue.toLowerCase().endsWith('.md')) {
+          filenameValue += '.md'
+        }
+
+        // Basic client-side validation (also done on server)
+        if (filenameValue.length <= 3 || !filenameValue.slice(0, -3).trim()) {
+          alert('Invalid filename.  Must contain characters other than whitespace.')
+          return
+        }
+
         try {
-          const resp = await fetch("/notes/create", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ filename: filenameValue }),
-          });
+          const resp = await fetch('/notes/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: filenameValue })
+          })
           if (!resp.ok) {
-            alert("Failed to create note");
-            return;
+            const errorData = await resp.json()
+            alert(errorData.error || 'Failed to create note') // Show server error
+            return
           }
-          const data = await resp.json();
+          const data = await resp.json()
           if (data.success) {
-            window.location.href = "/notes/" + encodeURIComponent(filenameValue);
+            window.location.href = '/notes/' + encodeURIComponent(filenameValue)
           } else {
-            alert(data.error || "Failed to create note");
+            alert(data.error || 'Failed to create note') // Should not happen, but handle it
           }
         } catch (err) {
-          alert("Error creating note");
+          alert('Error creating note')
         }
-      });
+      })
 
       if (themeToggleBtn) {
-        themeToggleBtn.addEventListener("click", () => {
-          document.body.classList.toggle("dark-theme");
-        });
+        themeToggleBtn.addEventListener('click', () => {
+          document.body.classList.toggle('dark-theme')
+        })
       }
+
+      // Reindex button event listener
+      reindexButton.addEventListener('click', async () => {
+        try {
+          const response = await fetch('/reindex')
+          const data = await response.json()
+          if (data.success) {
+            alert('Reindexing complete!')
+          } else {
+            alert('Reindexing failed: ' + (data.error || 'Unknown error'))
+          }
+        } catch (error) {
+          console.error('Error during reindexing:', error)
+          alert('Reindexing failed: Network error')
+        }
+      })
 
       function escapeHtml(str) {
         return str
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#039;");
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;')
       }
     </script>
   </body>

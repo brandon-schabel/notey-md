@@ -1,0 +1,138 @@
+[
+    {
+        "markdown": "&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;\n",
+        "html": "<p>  &amp; \u00a9 \u00c6 \u010e\n\u00be \u210b \u2146\n\u2232 \u2267\u0338</p>\n",
+        "example": 25,
+        "start_line": 649,
+        "end_line": 657,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "&#35; &#1234; &#992; &#0;\n",
+        "html": "<p># \u04d2 \u03e0 \ufffd</p>\n",
+        "example": 26,
+        "start_line": 668,
+        "end_line": 672,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "&#X22; &#XD06; &#xcab;\n",
+        "html": "<p>&quot; \u0d06 \u0cab</p>\n",
+        "example": 27,
+        "start_line": 681,
+        "end_line": 685,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "&nbsp &x; &#; &#x;\n&#87654321;\n&#abcdef0;\n&ThisIsNotDefined; &hi?;\n",
+        "html": "<p>&amp;nbsp &amp;x; &amp;#; &amp;#x;\n&amp;#87654321;\n&amp;#abcdef0;\n&amp;ThisIsNotDefined; &amp;hi?;</p>\n",
+        "example": 28,
+        "start_line": 690,
+        "end_line": 700,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "&copy\n",
+        "html": "<p>&amp;copy</p>\n",
+        "example": 29,
+        "start_line": 707,
+        "end_line": 711,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "&MadeUpEntity;\n",
+        "html": "<p>&amp;MadeUpEntity;</p>\n",
+        "example": 30,
+        "start_line": 717,
+        "end_line": 721,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "<a href=\"&ouml;&ouml;.html\">\n",
+        "html": "<a href=\"&ouml;&ouml;.html\">\n",
+        "example": 31,
+        "start_line": 728,
+        "end_line": 732,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")\n",
+        "html": "<p><a href=\"/f%C3%B6%C3%B6\" title=\"f\u00f6\u00f6\">foo</a></p>\n",
+        "example": 32,
+        "start_line": 735,
+        "end_line": 739,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\"\n",
+        "html": "<p><a href=\"/f%C3%B6%C3%B6\" title=\"f\u00f6\u00f6\">foo</a></p>\n",
+        "example": 33,
+        "start_line": 742,
+        "end_line": 748,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "``` f&ouml;&ouml;\nfoo\n```\n",
+        "html": "<pre><code class=\"language-f\u00f6\u00f6\">foo\n</code></pre>\n",
+        "example": 34,
+        "start_line": 751,
+        "end_line": 758,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "`f&ouml;&ouml;`\n",
+        "html": "<p><code>f&amp;ouml;&amp;ouml;</code></p>\n",
+        "example": 35,
+        "start_line": 764,
+        "end_line": 768,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "    f&ouml;f&ouml;\n",
+        "html": "<pre><code>f&amp;ouml;f&amp;ouml;\n</code></pre>\n",
+        "example": 36,
+        "start_line": 771,
+        "end_line": 776,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "&#42;foo&#42;\n*foo*\n",
+        "html": "<p>*foo*\n<em>foo</em></p>\n",
+        "example": 37,
+        "start_line": 783,
+        "end_line": 789,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "&#42; foo\n\n* foo\n",
+        "html": "<p>* foo</p>\n<ul>\n<li>foo</li>\n</ul>\n",
+        "example": 38,
+        "start_line": 791,
+        "end_line": 800,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "foo&#10;&#10;bar\n",
+        "html": "<p>foo\n\nbar</p>\n",
+        "example": 39,
+        "start_line": 802,
+        "end_line": 808,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "&#9;foo\n",
+        "html": "<p>\tfoo</p>\n",
+        "example": 40,
+        "start_line": 810,
+        "end_line": 814,
+        "section": "Entity and numeric character references"
+    },
+    {
+        "markdown": "[a](url &quot;tit&quot;)\n",
+        "html": "<p>[a](url &quot;tit&quot;)</p>\n",
+        "example": 41,
+        "start_line": 817,
+        "end_line": 821,
+        "section": "Entity and numeric character references"
+    }
+]

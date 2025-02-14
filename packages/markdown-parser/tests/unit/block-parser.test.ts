@@ -1,7 +1,7 @@
 import type { HeadingNode, ParagraphNode, BlockquoteNode, CodeBlockNode, ListNode, DocumentNode, ThematicBreakNode, HtmlBlockNode, ListItemNode, RefDefinition, MarkdownNode } from "@/ast";
 import { test, describe, expect } from "bun:test";
-import { blockPhase, canContainLine, consumeContainerMarkers, setParagraphContent, tryOpenNewContainers, closeParagraphIfOpen, handleBlankLine, closeBlock, parseAtxHeading, isThematicBreak, getListMarker, tryHtmlBlockOpen, parseRefDefLine, normalizeRefLabel } from "@/block-parser";
-import { getParagraphContent } from "@/parser-helpers";
+import { blockPhase, canContainLine, consumeContainerMarkers, tryOpenNewContainers, closeParagraphIfOpen, handleBlankLine, closeBlock, parseAtxHeading, isThematicBreak, getListMarker, tryHtmlBlockOpen,} from "@/block-parser";
+import { getParagraphContent, normalizeRefLabel, parseRefDefLine, setParagraphContent } from "@/parser-helpers";
 
 describe("blockPhase - Basic Functionality", () => {
     test("should return a DocumentNode with empty children for empty input", () => {
@@ -81,6 +81,60 @@ describe("blockPhase - Basic Functionality", () => {
         expect(h2).toBeDefined();
         expect(paragraph).toBeDefined();
     });
+
+    test("List item with two paragraphs separated by blank line", () => {
+        const input = `- First paragraph in list item
+      
+        Second paragraph in same item`
+        const doc = blockPhase(input);
+        // doc should be => <ul><li>  <p>First paragraph...</p><p>Second paragraph...</p>  </li></ul>
+        expect(doc.children.length).toBe(1); // only one <ul>
+        const list = doc.children[0] as ListNode;
+        expect(list.type).toBe("list");
+        expect(list.children.length).toBe(1); // one <li>
+        const li = list.children[0];
+        expect(li.children.length).toBe(2);   // 2 paragraphs
+        expect(li.children[0].type).toBe("paragraph");
+        expect(li.children[1].type).toBe("paragraph");
+      });
+      
+      test("List item with blank line then indented code block", () => {
+        const input = `- item
+        
+            code line
+        `;
+        const doc = blockPhase(input);
+        // Expect <ul><li> <p>item</p><code_block>code line</code_block></li></ul>
+        expect(doc.children.length).toBe(1);
+        const list = doc.children[0] as ListNode;
+        expect(list.children.length).toBe(1);
+        const li = list.children[0];
+        expect(li.children.length).toBe(2); // a paragraph and a code block
+        expect(li.children[0].type).toBe("paragraph");
+        expect(li.children[1].type).toBe("code_block");
+      });
+
+      test("Nested list items with blank lines in sub-list", () => {
+        const input = `- Outer
+          - Inner line one
+      
+            Inner line two
+        `;
+        // Should yield <ul><li>Outer<ul><li> <p>Inner line one</p><p>Inner line two</p> </li></ul></li></ul>
+        const doc = blockPhase(input);
+        expect(doc.children.length).toBe(1);
+        const list = doc.children[0] as ListNode;
+        expect(list.children.length).toBe(1);
+        const li = list.children[0];
+        expect(li.children.length).toBe(2);
+        expect(li.children[0].type).toBe("paragraph");
+        expect(li.children[1].type).toBe("list");
+        const innerList = li.children[1] as ListNode;
+        expect(innerList.children.length).toBe(1);
+        const innerLi = innerList.children[0];
+        expect(innerLi.children.length).toBe(2);
+        expect(innerLi.children[0].type).toBe("paragraph");
+      });
 });
 
 
@@ -124,40 +178,40 @@ describe("canContainLine", () => {
     };
 
     test("should return true for 'document' regardless of line content", () => {
-        expect(canContainLine(docNode, "anything")).toBe(true);
-        expect(canContainLine(docNode, "")).toBe(true);
+        expect(canContainLine(docNode, "anything", 0)).toBe(true);
+        expect(canContainLine(docNode, "", 0)).toBe(true);
     });
 
     test("should return true for blockquote if line is blank or starts with up to 3 spaces + >", () => {
-        expect(canContainLine(bqNode, "> A quote")).toBe(true);
-        expect(canContainLine(bqNode, "   > Indented quote")).toBe(true);
-        expect(canContainLine(bqNode, "")).toBe(true);
-        expect(canContainLine(bqNode, "No marker")).toBe(false);
+        expect(canContainLine(bqNode, "> A quote", 0)).toBe(true);
+        expect(canContainLine(bqNode, "   > Indented quote", 0)).toBe(true);
+        expect(canContainLine(bqNode, "", 0)).toBe(true);
+        expect(canContainLine(bqNode, "No marker", 0)).toBe(false);
     });
 
     test("should return true for paragraph if line is non-blank", () => {
-        expect(canContainLine(paragraphNode, "Some text")).toBe(true);
-        expect(canContainLine(paragraphNode, "")).toBe(false);
+        expect(canContainLine(paragraphNode, "Some text", 0)).toBe(true);
+        expect(canContainLine(paragraphNode, "", 0)).toBe(false);
     });
 
     test("should return false for heading since we treat headings as single-line blocks", () => {
-        expect(canContainLine(headingNode, "Extra line")).toBe(false);
-        expect(canContainLine(headingNode, "")).toBe(false);
+        expect(canContainLine(headingNode, "Extra line", 0)).toBe(false);
+        expect(canContainLine(headingNode, "", 0)).toBe(false);
     });
 
     test("should return true for code_block lines (they can contain anything)", () => {
-        expect(canContainLine(codeBlockNode, "console.log('test');")).toBe(true);
-        expect(canContainLine(codeBlockNode, "")).toBe(true);
+        expect(canContainLine(codeBlockNode, "console.log('test');", 0)).toBe(true);
+        expect(canContainLine(codeBlockNode, "", 0)).toBe(true);
     });
 
     test("should return false for a thematic break node on additional lines", () => {
-        expect(canContainLine(thematicBreakNode, "some text")).toBe(false);
-        expect(canContainLine(thematicBreakNode, "")).toBe(false);
+        expect(canContainLine(thematicBreakNode, "some text", 0)).toBe(false);
+        expect(canContainLine(thematicBreakNode, "", 0)).toBe(false);
     });
 
     test("should return false for an html_block on additional lines", () => {
-        expect(canContainLine(htmlBlockNode, "more html")).toBe(false);
-        expect(canContainLine(htmlBlockNode, "")).toBe(false);
+        expect(canContainLine(htmlBlockNode, "more html", 0)).toBe(false);
+        expect(canContainLine(htmlBlockNode, "", 0)).toBe(false);
     });
 
     test("should return true if container is a 'list' or 'list_item', ignoring line content in top-level check", () => {
@@ -172,10 +226,15 @@ describe("canContainLine", () => {
             type: "list_item",
             children: []
         };
-        expect(canContainLine(listNode, "Some text")).toBe(true);
-        expect(canContainLine(listNode, "")).toBe(true);
-        expect(canContainLine(listItemNode, "- Another item")).toBe(true);
-        expect(canContainLine(listItemNode, "")).toBe(true);
+        expect(canContainLine(listNode, "Some text", 0)).toBe(true);
+        expect(canContainLine(listNode, "", 0)).toBe(true);
+        expect(canContainLine(listItemNode, "- Another item", 0)).toBe(false);
+        expect(canContainLine(listItemNode, "", 0)).toBe(true);
+    });
+
+    test("should return false for list_item if line starts with a list marker", () => {
+        expect(canContainLine(listItemNode, "- New item", 0)).toBe(false);
+        expect(canContainLine(listItemNode, "1. Ordered item", 0)).toBe(false);
     });
 });
 

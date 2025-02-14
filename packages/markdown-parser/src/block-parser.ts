@@ -11,200 +11,234 @@ import type {
   HtmlBlockNode,
   RefDefinition,
 } from "./ast";
-import { getParagraphContent, tryHtmlBlockOpenStrict } from "./parser-helpers";
-
+import {
+  getParagraphContent,
+  setParagraphContent,
+  parseRefDefLine,
+  normalizeRefLabel,
+  appendContentToCode,
+  tryHtmlBlockOpenStrict,
+} from "./parser-helpers";
 
 export function blockPhase(markdown: string): DocumentNode {
-  let content = markdown.replace(/\r\n?/g, "\n")
-  const lines = content.split("\n")
+  // Normalize line endings and expand tabs to 4 spaces
+  let content = markdown.replace(/\r\n?/g, "\n").replace(/\t/g, "    ");
+  const lines = content.split("\n");
+
   const doc: DocumentNode = {
     type: "document",
     children: [],
     refDefinitions: new Map(),
-  }
-  let stack: MarkdownNode[] = [doc]
+  };
+
+  let stack: MarkdownNode[] = [doc];
+  let lastLineWasBlank = false;
 
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i]
-    const top = stack[stack.length - 1]
+    let line = lines[i];
+    const top = stack[stack.length - 1];
+
     if (top.type === "code_block" && top.fence) {
-      const trimmed = line.trim()
-      const fence = top.fence
-      if (trimmed === fence || (trimmed.startsWith(fence) && trimmed.slice(fence.length).trim() === "")) {
-        stack.pop()
-        continue
+      const trimmed = line.trim();
+      const fence = top.fence;
+      if (
+        trimmed === fence ||
+        (trimmed.startsWith(fence) && trimmed.slice(fence.length).trim() === "")
+      ) {
+        stack.pop();
+        continue;
       } else {
-        appendContentToCode(top, line)
-        continue
+        appendContentToCode(top, line);
+        continue;
       }
     }
 
-    let currentIdx = 1
-    let offset = 0
+    let currentIdx = 1;
+    let offset = 0;
     while (currentIdx < stack.length) {
-      const container = stack[currentIdx]
-      if (!canContainLine(container, line)) {
+      const container = stack[currentIdx];
+      if (!canContainLine(container, line, offset)) {
         while (stack.length > currentIdx) {
-          closeBlock(stack, doc.refDefinitions)
+          closeBlock(stack, doc.refDefinitions);
         }
-        break
+        break;
       }
-      offset = consumeContainerMarkers(container, line, offset)
-      currentIdx++
+      offset = consumeContainerMarkers(container, line, offset);
+      currentIdx++;
     }
 
-    let opened = tryOpenNewContainers(stack, line, offset)
+    let opened = tryOpenNewContainers(stack, line, offset);
+
     if (!opened) {
       if (!line.trim()) {
-        if (stack[stack.length - 1].type === "paragraph") {
-          closeBlock(stack, doc.refDefinitions)
-        }
-        continue
+        handleBlankLine(stack, doc.refDefinitions);
+        lastLineWasBlank = true;
+        continue;
       }
-      let sTop = stack[stack.length - 1]
+      let sTop = stack[stack.length - 1];
       if (sTop.type !== "paragraph" && sTop.type !== "code_block") {
-        const p: ParagraphNode = { type: "paragraph", children: [] }
-        addChild(sTop, p)
-        stack.push(p)
+        const p: ParagraphNode = { type: "paragraph", children: [] };
+        addChild(sTop, p);
+        stack.push(p);
       }
-      let finalOffset = 0
+      let finalOffset = 0;
       for (let idx = 1; idx < stack.length; idx++) {
-        finalOffset = consumeContainerMarkers(stack[idx], line, finalOffset)
+        finalOffset = consumeContainerMarkers(stack[idx], line, finalOffset);
       }
-      let para = stack[stack.length - 1] as ParagraphNode
-      let currentText = getParagraphContent(para)
+      let para = stack[stack.length - 1] as ParagraphNode;
+      let currentText = getParagraphContent(para);
       setParagraphContent(
         para,
         currentText ? currentText + "\n" + line.slice(finalOffset) : line.slice(finalOffset),
-      )
-    } else {
-      if (!line.trim()) {
-        handleBlankLine(stack, doc.refDefinitions)
-      }
+      );
+    }
+
+    if (line.trim()) {
+      lastLineWasBlank = false;
     }
   }
+
   while (stack.length > 0) {
-    closeBlock(stack, doc.refDefinitions)
+    closeBlock(stack, doc.refDefinitions);
   }
-  return doc
+
+  finalizeLists(doc);
+  return doc;
 }
 
-
-
-export function canContainLine(container: MarkdownNode, line: string): boolean {
-  if (container.type === "document") return true
+export function canContainLine(container: MarkdownNode, line: string, offset: number): boolean {
+  if (container.type === "document") return true;
   if (container.type === "blockquote") {
-    if (/^[ ]{0,3}>/.test(line) || !line.trim()) return true
-    return false
+    if (/^[ ]{0,3}>/.test(line.slice(offset)) || !line.trim()) return true;
+    return false;
   }
-  if (container.type === "list_item") return true
-  if (container.type === "list") return true
-  if (container.type === "code_block") return true
+  if (container.type === "list_item") {
+    const listMarker = getListMarker(line.slice(offset));
+    if (listMarker) {
+      return false;
+    }
+    // Indented code block within list item
+    if (/^ {4,}/.test(line.slice(offset))) {
+      return true;
+    }
+    // Lazy continuation
+    if (line.trim() && !/^[ ]{0,3}(>|[*+\-]|\d+[.)])/.test(line.slice(offset))) {
+      return true;
+    }
+    return false;
+  }
+  if (container.type === "list") return true;
+  if (container.type === "code_block") return true;
   if (container.type === "paragraph") {
-    if (line.trim()) return true
-    return false
+    if (line.trim()) return true;
+    return false;
   }
-  return false
+  return false;
 }
 
 export function consumeContainerMarkers(container: MarkdownNode, line: string, offset: number): number {
   if (container.type === "blockquote") {
-    const match = line.slice(offset).match(/^[ ]{0,3}>( ?)?/)
-    if (match) offset += match[0].length
+    const match = line.slice(offset).match(/^[ ]{0,3}>( ?)?/);
+    if (match) {
+      offset += match[0].length;
+    }
   }
-  return offset
+  return offset;
 }
 
-
 export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset: number): boolean {
-  const container = stack[stack.length - 1]
-  const rest = line.slice(offset)
+  let currentOffset = offset;
+  let currentLine = line.slice(currentOffset);
+  const container = stack[stack.length - 1];
 
   if (container.type === "paragraph") {
-    const setext = rest.match(/^[ ]{0,3}(=+|-+)\s*$/)
+    const setext = currentLine.match(/^[ ]{0,3}(=+|-+)\s*$/);
     if (setext) {
-      const para = container as ParagraphNode
-      const paraText = getParagraphContent(para).trim()
+      const para = container as ParagraphNode;
+      const paraText = getParagraphContent(para).trim();
       if (paraText !== "") {
-        const level = setext[1].startsWith("=") ? 1 : 2
-        stack.pop()
-        const parent = stack[stack.length - 1]
-        removeNodeChild(parent, para)
+        stack.pop();
+        const parent = stack[stack.length - 1];
+        removeNodeChild(parent, para);
         const heading: HeadingNode = {
           type: "heading",
-          level,
+          level: setext[1].startsWith("=") ? 1 : 2,
           children: [{ type: "text", value: paraText }],
-        }
-        addChild(parent, heading)
-        return true
+        };
+        addChild(parent, heading);
+        return true;
       }
     }
   }
 
-  if (isThematicBreak(rest)) {
-    closeParagraphIfOpen(stack)
-    const hr: ThematicBreakNode = { type: "thematic_break" }
-    addChild(stack[stack.length - 1], hr)
-    return true
+  if (isThematicBreak(currentLine)) {
+    closeParagraphIfOpen(stack);
+    const hr: ThematicBreakNode = { type: "thematic_break" };
+    addChild(stack[stack.length - 1], hr);
+    return true;
   }
 
-  const atx = parseAtxHeading(rest)
+  const atx = parseAtxHeading(currentLine);
   if (atx) {
-    closeParagraphIfOpen(stack)
-    addChild(stack[stack.length - 1], atx)
-    return true
+    closeParagraphIfOpen(stack);
+    addChild(stack[stack.length - 1], atx);
+    return true;
   }
 
-  if (isFencedCodeStart(rest.trim())) {
-    closeParagraphIfOpen(stack)
-    const match = rest.trim().match(/^(`{3,}|~{3,})(.*)$/)
+  if (isFencedCodeStart(currentLine.trim())) {
+    closeParagraphIfOpen(stack);
+    const match = currentLine.trim().match(/^(`{3,}|~{3,})(.*)$/);
     if (match) {
-      const fence = match[1]
-      const info = match[2] ? match[2].trim() : ""
+      const fence = match[1];
+      const info = match[2] ? match[2].trim() : "";
       const node: CodeBlockNode = {
         type: "code_block",
         language: info || undefined,
         value: "",
         fence: fence,
-      }
-      addChild(stack[stack.length - 1], node)
-      stack.push(node)
-      return true
+      };
+      addChild(stack[stack.length - 1], node);
+      stack.push(node);
+      return true;
     }
   }
 
-  const bqMatch = rest.match(/^[ ]{0,3}>( ?)?/)
+  // Blockquote (before list)
+  const bqMatch = currentLine.match(/^[ ]{0,3}>( ?)?/);
   if (bqMatch) {
-    if (container.type !== "blockquote") {
-      closeParagraphIfOpen(stack)
-      const bq: BlockquoteNode = { type: "blockquote", children: [] }
-      addChild(stack[stack.length - 1], bq)
-      stack.push(bq)
+    let parent = stack[stack.length - 1];
+    if (parent.type !== "blockquote") {
+      closeParagraphIfOpen(stack);
+      const bq: BlockquoteNode = { type: "blockquote", children: [] };
+      addChild(stack[stack.length - 1], bq);
+      stack.push(bq);
+      parent = bq;
     }
-    return true
+    currentOffset += bqMatch[0].length;
+    return true;
   }
 
-  const listMatch = getListMarker(rest)
+  const listMatch = getListMarker(currentLine);
   if (listMatch) {
-    closeParagraphIfOpen(stack)
+    closeParagraphIfOpen(stack);
     while (stack.length && stack[stack.length - 1].type === "list_item") {
-      closeBlock(stack, null)
+      closeBlock(stack, null);
     }
-    const wantOrdered = listMatch.ordered
-    const wantStart = listMatch.start
-    let parentList: ListNode | null = null
-    const top = stack[stack.length - 1]
+    const wantOrdered = listMatch.ordered;
+    const wantStart = listMatch.start;
+    let parentList: ListNode | null = null;
+    const top = stack[stack.length - 1];
     if (top.type === "list") {
       if (top.ordered === wantOrdered) {
-        parentList = top
+        parentList = top;
       } else {
         while (stack.length && stack[stack.length - 1].type !== "document") {
-          const t = stack[stack.length - 1]
+          const t = stack[stack.length - 1];
           if (t.type === "list") {
-            closeBlock(stack, null)
-            break
+            closeBlock(stack, null);
+            break;
           } else {
-            closeBlock(stack, null)
+            closeBlock(stack, null);
           }
         }
       }
@@ -216,44 +250,45 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
         start: wantOrdered ? wantStart : null,
         tight: true,
         children: [],
-      }
-      addChild(stack[stack.length - 1], newList)
-      stack.push(newList)
-      parentList = newList
+      };
+      addChild(stack[stack.length - 1], newList);
+      stack.push(newList);
+      parentList = newList;
     }
-    const li: ListItemNode = { type: "list_item", children: [] }
-    addChild(parentList, li)
-    stack.push(li)
-    const p: ParagraphNode = { type: "paragraph", children: [] }
-    addChild(li, p)
-    stack.push(p)
-    return true
+    const li: ListItemNode = { type: "list_item", children: [] };
+    addChild(parentList, li);
+    stack.push(li);
+    return true;
   }
 
-  const indentMatch = line.match(/^ {4,}(.*)$/)
+  const indentMatch = currentLine.match(/^ {4,}(.*)$/);
   if (indentMatch) {
-    closeParagraphIfOpen(stack)
-    const codeLine = indentMatch[1]
-    const topNode = stack[stack.length - 1]
-    if (topNode.type === "code_block" && !hasFencedEnding(topNode.value)) {
-      appendContentToCode(topNode, codeLine)
+    closeParagraphIfOpen(stack);
+    const codeLine = indentMatch[1];
+    const topNode = stack[stack.length - 1];
+    if (topNode.type === "list_item") {
+      const codeBlock: CodeBlockNode = { type: "code_block", value: codeLine };
+      addChild(topNode, codeBlock);
+      stack.push(codeBlock);
+    } else if (topNode.type === "code_block" && !topNode.fence) {
+      appendContentToCode(topNode, codeLine);
     } else {
-      const cb: CodeBlockNode = { type: "code_block", value: codeLine }
-      addChild(stack[stack.length - 1], cb)
-      stack.push(cb)
+      const cb: CodeBlockNode = { type: "code_block", value: codeLine };
+      addChild(stack[stack.length - 1], cb);
+      stack.push(cb);
     }
-    return true
+    return true;
   }
 
-  const maybeHtmlBlock = tryHtmlBlockOpenStrict(rest.trim())
+  const maybeHtmlBlock = tryHtmlBlockOpenStrict(currentLine.trim());
   if (maybeHtmlBlock) {
-    closeParagraphIfOpen(stack)
-    const block: HtmlBlockNode = { type: "html_block", value: maybeHtmlBlock.content }
-    addChild(stack[stack.length - 1], block)
-    return true
+    closeParagraphIfOpen(stack);
+    const block: HtmlBlockNode = { type: "html_block", value: maybeHtmlBlock.content };
+    addChild(stack[stack.length - 1], block);
+    return true;
   }
 
-  return false
+  return false;
 }
 
 export function closeParagraphIfOpen(stack: MarkdownNode[]) {
@@ -264,39 +299,45 @@ export function closeParagraphIfOpen(stack: MarkdownNode[]) {
 }
 
 export function handleBlankLine(stack: MarkdownNode[], refMap: Map<string, RefDefinition> | null) {
-  const top = stack[stack.length - 1]
-  if (top.type === "paragraph") closeBlock(stack, refMap)
-  else if (top.type === "code_block") appendContentToCode(top, "")
-}
-
-
-export function closeBlock(stack: MarkdownNode[], refMap: Map<string, RefDefinition> | null) {
-  const block = stack.pop()
-  if (!block) return
-  if (block.type === "paragraph" && refMap) {
-    const text = getParagraphContent(block).trim()
-    const lines = text.split("\n")
-    const leftover: string[] = []
-    for (const line of lines) {
-      const def = parseRefDefLine(line)
-      if (def) {
-        const normLabel = normalizeRefLabel(def.label)
-        if (!refMap.has(normLabel)) {
-          refMap.set(normLabel, { label: normLabel, url: def.url, title: def.title })
-        }
-      } else leftover.push(line)
+  const top = stack[stack.length - 1];
+  if (top.type === "paragraph") {
+    closeBlock(stack, refMap);
+  } else if (top.type === "code_block") {
+    appendContentToCode(top, "");
+  } else if (top.type === "list_item") {
+    if (top.children.length === 1 && top.children[0].type === "paragraph") {
+      closeBlock(stack, refMap);
     }
-    if (leftover.length === 0) {
-      const parent = stack[stack.length - 1]
-      removeNodeChild(parent, block)
-    } else {
-      setParagraphContent(block, leftover.join("\n"))
-    }
+  } else if (top.type === "list") {
+    top.tight = false;
   }
 }
 
-export function hasFencedEnding(line: string): boolean {
-  return false
+export function closeBlock(stack: MarkdownNode[], refMap: Map<string, RefDefinition> | null) {
+  const block = stack.pop();
+  if (!block) return;
+  if (block.type === "paragraph" && refMap) {
+    const text = getParagraphContent(block).trim();
+    const lines = text.split("\n");
+    const leftover: string[] = [];
+    for (const line of lines) {
+      const def = parseRefDefLine(line);
+      if (def) {
+        const normLabel = normalizeRefLabel(def.label);
+        if (!refMap.has(normLabel)) {
+          refMap.set(normLabel, { label: normLabel, url: def.url, title: def.title });
+        }
+      } else {
+        leftover.push(line);
+      }
+    }
+    if (leftover.length === 0) {
+      const parent = stack[stack.length - 1];
+      removeNodeChild(parent, block);
+    } else {
+      setParagraphContent(block, leftover.join("\n"));
+    }
+  }
 }
 
 export function isFencedCodeStart(line: string): boolean {
@@ -304,24 +345,24 @@ export function isFencedCodeStart(line: string): boolean {
 }
 
 export function parseAtxHeading(line: string): HeadingNode | null {
-  const re = /^(#{1,6})(?:[ \t]+|$)(.*?)(?:[ \t]+#+[ \t]*|[ \t]*)$/
-  const m = line.match(re)
-  if (!m) return null
-  const rawHashes = m[1]
-  if (rawHashes.length > 6) return null
-  let text = m[2] || ""
-  let level = rawHashes.length
+  const re = /^(#{1,6})(?:[ \t]+|$)(.*?)(?:[ \t]+#+[ \t]*|[ \t]*)$/;
+  const m = line.match(re);
+  if (!m) return null;
+  const rawHashes = m[1];
+  if (rawHashes.length > 6) return null;
+  let text = m[2] || "";
+  let level = rawHashes.length;
   return {
     type: "heading",
     level,
     children: [{ type: "text", value: text }],
-  }
+  };
 }
 
 export function isThematicBreak(line: string): boolean {
-  const t = line.trim().replace(/\s+/g, "")
-  if (/^(?:\*{3,}|-{3,}|_{3,})$/.test(t)) return true
-  return false
+  const t = line.trim().replace(/\s+/g, "");
+  if (/^(?:\*{3,}|-{3,}|_{3,})$/.test(t)) return true;
+  return false;
 }
 
 export function getListMarker(line: string): {
@@ -368,7 +409,34 @@ export function addChild(parent: MarkdownNode, child: MarkdownNode) {
     parent.children.push(child);
     return;
   }
-  if ("children" in parent) {
+  if (parent.type === "list" && child.type === "list_item") {
+    parent.children.push(child);
+    return;
+  }
+  if (
+    parent.type === "list_item" &&
+    (child.type === "paragraph" ||
+      child.type === "code_block" ||
+      child.type === "list" ||
+      child.type === "blockquote")
+  ) {
+    parent.children.push(child);
+    return;
+  }
+  if (
+    parent.type === "blockquote" &&
+    (child.type === "paragraph" ||
+      child.type === "heading" ||
+      child.type === "code_block" ||
+      child.type === "list" ||
+      child.type === "thematic_break" ||
+      child.type === "html_block" ||
+      child.type === "blockquote")
+  ) {
+    parent.children.push(child);
+    return;
+  }
+  if ("children" in parent && Array.isArray(parent.children)) {
     parent.children.push(child);
   }
 }
@@ -386,33 +454,41 @@ export function removeNodeChild(parent: MarkdownNode, child: MarkdownNode) {
   }
 }
 
-export function isParagraphLike(node: MarkdownNode) {
-  return node.type === "paragraph" || node.type === "code_block";
-}
+function finalizeLists(doc: DocumentNode) {
+  const visit = (node: MarkdownNode) => {
+    if (node.type === "list") {
+      if (!node.tight) {
+        for (const item of node.children) {
+          if (item.type === "list_item") {
+            let hasBlocks = false;
+            for (let child of item.children) {
+              if (child.type !== "paragraph" && child.type !== "list") hasBlocks = true;
+            }
+            if (!hasBlocks) {
+              const children = item.children;
+              item.children = [];
+              const paragraph: ParagraphNode = { type: "paragraph", children: [] };
+              for (const child of children) {
+                if (child.type === "paragraph") {
+                  for (const c of child.children) {
+                    addChild(paragraph, c);
+                  }
+                } else {
+                  addChild(paragraph, child);
+                }
+              }
+              addChild(item, paragraph);
+            }
+          }
+        }
+      }
+    }
+    if ("children" in node && Array.isArray(node.children)) {
+      for (const child of node.children) {
+        visit(child);
+      }
+    }
+  };
 
-export function setParagraphContent(node: ParagraphNode, text: string) {
-  (node as any)._raw = text;
+  visit(doc);
 }
-export function appendContentToCode(node: CodeBlockNode, line: string) {
-  if (node.value) {
-    node.value += "\n" + line;
-  } else {
-    node.value = line;
-  }
-}
-
-export function parseRefDefLine(line: string): RefDefinition | null {
-  let re =
-    /^[ ]{0,3}\[([^\]]+)\]:\s*(?:<(.*?)>|(\S+))\s*(?:"([^"]*)"|'([^']*)'|\(([^)]*)\))?\s*$/;
-  let m = line.match(re);
-  if (!m) return null;
-  let label = m[1] || "";
-  let url = m[2] || m[3] || "";
-  let title = m[4] || m[5] || m[6] || undefined;
-  return { label, url, title };
-}
-
-export function normalizeRefLabel(str: string): string {
-  return str.trim().toLowerCase().replace(/\s+/g, " ");
-}
-

@@ -9,6 +9,7 @@
     <header>
       <h1 id="app-title">Editing: <span id="note-name-display"></span></h1>
       <button class="theme-toggle-button" id="themeToggleButton">Toggle Theme</button>
+      <button id="deleteNoteButton">Delete Note</button>
       <div id="save-status"></div>
     </header>
     <div class="main-interface-container">
@@ -26,14 +27,12 @@
         <div id="preview"></div>
       </div>
     </div>
-    <!-- Command Palette (already supported by global css) -->
     <div class="command-palette-overlay" id="commandPaletteOverlay">
       <div class="command-palette-box">
         <input type="text" class="command-palette-input" id="commandPaletteInput" placeholder="Type a command..." />
         <ul class="command-palette-list" id="commandPaletteList"></ul>
       </div>
     </div>
-
     <script type="module">
       import { parseMarkdown } from '/markdown-parser/dist/index.js'
       import { initEditor } from '/app/editor.js'
@@ -44,13 +43,11 @@
         initialContent: PLACEHOLDER_CONTENT
       })
 
-      // Same approach as index: theme toggle
       const themeToggleButtonElement = document.getElementById('themeToggleButton')
       themeToggleButtonElement?.addEventListener('click', () => {
         document.body.classList.toggle('dark-theme')
       })
 
-      // Command palette logic
       document.addEventListener('keydown', (event) => {
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
           event.preventDefault()
@@ -92,7 +89,6 @@
       }
       function handleCommandPaletteSelection(commandName) {
         closeCommandPaletteIfOpen()
-        // Insert logic if you want e.g. automatically wrap text
       }
       commandPaletteInputElement?.addEventListener('input', (e) => {
         renderCommandPaletteItems(e.target.value)

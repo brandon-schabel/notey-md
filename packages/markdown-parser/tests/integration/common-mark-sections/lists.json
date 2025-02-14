@@ -1,0 +1,210 @@
+[
+    {
+        "markdown": "- foo\n- bar\n+ baz\n",
+        "html": "<ul>\n<li>foo</li>\n<li>bar</li>\n</ul>\n<ul>\n<li>baz</li>\n</ul>\n",
+        "example": 301,
+        "start_line": 5249,
+        "end_line": 5261,
+        "section": "Lists"
+    },
+    {
+        "markdown": "1. foo\n2. bar\n3) baz\n",
+        "html": "<ol>\n<li>foo</li>\n<li>bar</li>\n</ol>\n<ol start=\"3\">\n<li>baz</li>\n</ol>\n",
+        "example": 302,
+        "start_line": 5264,
+        "end_line": 5276,
+        "section": "Lists"
+    },
+    {
+        "markdown": "Foo\n- bar\n- baz\n",
+        "html": "<p>Foo</p>\n<ul>\n<li>bar</li>\n<li>baz</li>\n</ul>\n",
+        "example": 303,
+        "start_line": 5283,
+        "end_line": 5293,
+        "section": "Lists"
+    },
+    {
+        "markdown": "The number of windows in my house is\n14.  The number of doors is 6.\n",
+        "html": "<p>The number of windows in my house is\n14.  The number of doors is 6.</p>\n",
+        "example": 304,
+        "start_line": 5360,
+        "end_line": 5366,
+        "section": "Lists"
+    },
+    {
+        "markdown": "The number of windows in my house is\n1.  The number of doors is 6.\n",
+        "html": "<p>The number of windows in my house is</p>\n<ol>\n<li>The number of doors is 6.</li>\n</ol>\n",
+        "example": 305,
+        "start_line": 5370,
+        "end_line": 5378,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- foo\n\n- bar\n\n\n- baz\n",
+        "html": "<ul>\n<li>\n<p>foo</p>\n</li>\n<li>\n<p>bar</p>\n</li>\n<li>\n<p>baz</p>\n</li>\n</ul>\n",
+        "example": 306,
+        "start_line": 5384,
+        "end_line": 5403,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- foo\n  - bar\n    - baz\n\n\n      bim\n",
+        "html": "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>\n<p>baz</p>\n<p>bim</p>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n",
+        "example": 307,
+        "start_line": 5405,
+        "end_line": 5427,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- foo\n- bar\n\n<!-- -->\n\n- baz\n- bim\n",
+        "html": "<ul>\n<li>foo</li>\n<li>bar</li>\n</ul>\n<!-- -->\n<ul>\n<li>baz</li>\n<li>bim</li>\n</ul>\n",
+        "example": 308,
+        "start_line": 5435,
+        "end_line": 5453,
+        "section": "Lists"
+    },
+    {
+        "markdown": "-   foo\n\n    notcode\n\n-   foo\n\n<!-- -->\n\n    code\n",
+        "html": "<ul>\n<li>\n<p>foo</p>\n<p>notcode</p>\n</li>\n<li>\n<p>foo</p>\n</li>\n</ul>\n<!-- -->\n<pre><code>code\n</code></pre>\n",
+        "example": 309,
+        "start_line": 5456,
+        "end_line": 5479,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n - b\n  - c\n   - d\n  - e\n - f\n- g\n",
+        "html": "<ul>\n<li>a</li>\n<li>b</li>\n<li>c</li>\n<li>d</li>\n<li>e</li>\n<li>f</li>\n<li>g</li>\n</ul>\n",
+        "example": 310,
+        "start_line": 5487,
+        "end_line": 5505,
+        "section": "Lists"
+    },
+    {
+        "markdown": "1. a\n\n  2. b\n\n   3. c\n",
+        "html": "<ol>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ol>\n",
+        "example": 311,
+        "start_line": 5508,
+        "end_line": 5526,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n - b\n  - c\n   - d\n    - e\n",
+        "html": "<ul>\n<li>a</li>\n<li>b</li>\n<li>c</li>\n<li>d\n- e</li>\n</ul>\n",
+        "example": 312,
+        "start_line": 5532,
+        "end_line": 5546,
+        "section": "Lists"
+    },
+    {
+        "markdown": "1. a\n\n  2. b\n\n    3. c\n",
+        "html": "<ol>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n</ol>\n<pre><code>3. c\n</code></pre>\n",
+        "example": 313,
+        "start_line": 5552,
+        "end_line": 5569,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n- b\n\n- c\n",
+        "html": "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n",
+        "example": 314,
+        "start_line": 5575,
+        "end_line": 5592,
+        "section": "Lists"
+    },
+    {
+        "markdown": "* a\n*\n\n* c\n",
+        "html": "<ul>\n<li>\n<p>a</p>\n</li>\n<li></li>\n<li>\n<p>c</p>\n</li>\n</ul>\n",
+        "example": 315,
+        "start_line": 5597,
+        "end_line": 5612,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n- b\n\n  c\n- d\n",
+        "html": "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n",
+        "example": 316,
+        "start_line": 5619,
+        "end_line": 5638,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n- b\n\n  [ref]: /url\n- d\n",
+        "html": "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n",
+        "example": 317,
+        "start_line": 5641,
+        "end_line": 5659,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n- ```\n  b\n\n\n  ```\n- c\n",
+        "html": "<ul>\n<li>a</li>\n<li>\n<pre><code>b\n\n\n</code></pre>\n</li>\n<li>c</li>\n</ul>\n",
+        "example": 318,
+        "start_line": 5664,
+        "end_line": 5683,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n  - b\n\n    c\n- d\n",
+        "html": "<ul>\n<li>a\n<ul>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n</ul>\n</li>\n<li>d</li>\n</ul>\n",
+        "example": 319,
+        "start_line": 5690,
+        "end_line": 5708,
+        "section": "Lists"
+    },
+    {
+        "markdown": "* a\n  > b\n  >\n* c\n",
+        "html": "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n</li>\n<li>c</li>\n</ul>\n",
+        "example": 320,
+        "start_line": 5714,
+        "end_line": 5728,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n  > b\n  ```\n  c\n  ```\n- d\n",
+        "html": "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n<pre><code>c\n</code></pre>\n</li>\n<li>d</li>\n</ul>\n",
+        "example": 321,
+        "start_line": 5734,
+        "end_line": 5752,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n",
+        "html": "<ul>\n<li>a</li>\n</ul>\n",
+        "example": 322,
+        "start_line": 5757,
+        "end_line": 5763,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n  - b\n",
+        "html": "<ul>\n<li>a\n<ul>\n<li>b</li>\n</ul>\n</li>\n</ul>\n",
+        "example": 323,
+        "start_line": 5766,
+        "end_line": 5777,
+        "section": "Lists"
+    },
+    {
+        "markdown": "1. ```\n   foo\n   ```\n\n   bar\n",
+        "html": "<ol>\n<li>\n<pre><code>foo\n</code></pre>\n<p>bar</p>\n</li>\n</ol>\n",
+        "example": 324,
+        "start_line": 5783,
+        "end_line": 5797,
+        "section": "Lists"
+    },
+    {
+        "markdown": "* foo\n  * bar\n\n  baz\n",
+        "html": "<ul>\n<li>\n<p>foo</p>\n<ul>\n<li>bar</li>\n</ul>\n<p>baz</p>\n</li>\n</ul>\n",
+        "example": 325,
+        "start_line": 5802,
+        "end_line": 5817,
+        "section": "Lists"
+    },
+    {
+        "markdown": "- a\n  - b\n  - c\n\n- d\n  - e\n  - f\n",
+        "html": "<ul>\n<li>\n<p>a</p>\n<ul>\n<li>b</li>\n<li>c</li>\n</ul>\n</li>\n<li>\n<p>d</p>\n<ul>\n<li>e</li>\n<li>f</li>\n</ul>\n</li>\n</ul>\n",
+        "example": 326,
+        "start_line": 5820,
+        "end_line": 5845,
+        "section": "Lists"
+    }
+]

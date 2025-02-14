@@ -1,0 +1,154 @@
+[
+    {
+        "markdown": "<http://foo.bar.baz>\n",
+        "html": "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n",
+        "example": 594,
+        "start_line": 8780,
+        "end_line": 8784,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<https://foo.bar.baz/test?q=hello&id=22&boolean>\n",
+        "html": "<p><a href=\"https://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean\">https://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean</a></p>\n",
+        "example": 595,
+        "start_line": 8787,
+        "end_line": 8791,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<irc://foo.bar:2233/baz>\n",
+        "html": "<p><a href=\"irc://foo.bar:2233/baz\">irc://foo.bar:2233/baz</a></p>\n",
+        "example": 596,
+        "start_line": 8794,
+        "end_line": 8798,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<MAILTO:FOO@BAR.BAZ>\n",
+        "html": "<p><a href=\"MAILTO:FOO@BAR.BAZ\">MAILTO:FOO@BAR.BAZ</a></p>\n",
+        "example": 597,
+        "start_line": 8803,
+        "end_line": 8807,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<a+b+c:d>\n",
+        "html": "<p><a href=\"a+b+c:d\">a+b+c:d</a></p>\n",
+        "example": 598,
+        "start_line": 8815,
+        "end_line": 8819,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<made-up-scheme://foo,bar>\n",
+        "html": "<p><a href=\"made-up-scheme://foo,bar\">made-up-scheme://foo,bar</a></p>\n",
+        "example": 599,
+        "start_line": 8822,
+        "end_line": 8826,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<https://../>\n",
+        "html": "<p><a href=\"https://../\">https://../</a></p>\n",
+        "example": 600,
+        "start_line": 8829,
+        "end_line": 8833,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<localhost:5001/foo>\n",
+        "html": "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>\n",
+        "example": 601,
+        "start_line": 8836,
+        "end_line": 8840,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<https://foo.bar/baz bim>\n",
+        "html": "<p>&lt;https://foo.bar/baz bim&gt;</p>\n",
+        "example": 602,
+        "start_line": 8845,
+        "end_line": 8849,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<https://example.com/\\[\\>\n",
+        "html": "<p><a href=\"https://example.com/%5C%5B%5C\">https://example.com/\\[\\</a></p>\n",
+        "example": 603,
+        "start_line": 8854,
+        "end_line": 8858,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<foo@bar.example.com>\n",
+        "html": "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n",
+        "example": 604,
+        "start_line": 8876,
+        "end_line": 8880,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<foo+special@Bar.baz-bar0.com>\n",
+        "html": "<p><a href=\"mailto:foo+special@Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n",
+        "example": 605,
+        "start_line": 8883,
+        "end_line": 8887,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<foo\\+@bar.example.com>\n",
+        "html": "<p>&lt;foo+@bar.example.com&gt;</p>\n",
+        "example": 606,
+        "start_line": 8892,
+        "end_line": 8896,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<>\n",
+        "html": "<p>&lt;&gt;</p>\n",
+        "example": 607,
+        "start_line": 8901,
+        "end_line": 8905,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "< https://foo.bar >\n",
+        "html": "<p>&lt; https://foo.bar &gt;</p>\n",
+        "example": 608,
+        "start_line": 8908,
+        "end_line": 8912,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<m:abc>\n",
+        "html": "<p>&lt;m:abc&gt;</p>\n",
+        "example": 609,
+        "start_line": 8915,
+        "end_line": 8919,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "<foo.bar.baz>\n",
+        "html": "<p>&lt;foo.bar.baz&gt;</p>\n",
+        "example": 610,
+        "start_line": 8922,
+        "end_line": 8926,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "https://example.com\n",
+        "html": "<p>https://example.com</p>\n",
+        "example": 611,
+        "start_line": 8929,
+        "end_line": 8933,
+        "section": "Autolinks"
+    },
+    {
+        "markdown": "foo@bar.example.com\n",
+        "html": "<p>foo@bar.example.com</p>\n",
+        "example": 612,
+        "start_line": 8936,
+        "end_line": 8940,
+        "section": "Autolinks"
+    }
+]

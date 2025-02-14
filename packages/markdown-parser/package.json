@@ -16,7 +16,7 @@
     "build:types": "tsc --project tsconfig.build.json",
     "build:bundle": "bun build ./src/index.ts --outdir=dist --format=esm --minify --sourcemap",
     "build": "npm run clean && npm run build:types && npm run build:bundle",
-    "test:integration": "bun test tests/integration/common-mark-0-31-2-spec.test.ts",
+    "test:integration": "bun test tests/integration/common-mark-spec.test.ts",
     "test:unit": "bun test tests/unit"
   }
 }

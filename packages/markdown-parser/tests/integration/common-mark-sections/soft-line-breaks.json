@@ -1,0 +1,18 @@
+[
+    {
+        "markdown": "foo\nbaz\n",
+        "html": "<p>foo\nbaz</p>\n",
+        "example": 648,
+        "start_line": 9363,
+        "end_line": 9369,
+        "section": "Soft line breaks"
+    },
+    {
+        "markdown": "foo \n baz\n",
+        "html": "<p>foo\nbaz</p>\n",
+        "example": 649,
+        "start_line": 9375,
+        "end_line": 9381,
+        "section": "Soft line breaks"
+    }
+]

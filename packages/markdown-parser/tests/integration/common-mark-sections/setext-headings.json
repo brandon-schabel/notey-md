@@ -1,0 +1,218 @@
+[
+    {
+        "markdown": "Foo *bar*\n=========\n\nFoo *bar*\n---------\n",
+        "html": "<h1>Foo <em>bar</em></h1>\n<h2>Foo <em>bar</em></h2>\n",
+        "example": 80,
+        "start_line": 1347,
+        "end_line": 1356,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo *bar\nbaz*\n====\n",
+        "html": "<h1>Foo <em>bar\nbaz</em></h1>\n",
+        "example": 81,
+        "start_line": 1361,
+        "end_line": 1368,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "  Foo *bar\nbaz*\t\n====\n",
+        "html": "<h1>Foo <em>bar\nbaz</em></h1>\n",
+        "example": 82,
+        "start_line": 1375,
+        "end_line": 1382,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo\n-------------------------\n\nFoo\n=\n",
+        "html": "<h2>Foo</h2>\n<h1>Foo</h1>\n",
+        "example": 83,
+        "start_line": 1387,
+        "end_line": 1396,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "   Foo\n---\n\n  Foo\n-----\n\n  Foo\n  ===\n",
+        "html": "<h2>Foo</h2>\n<h2>Foo</h2>\n<h1>Foo</h1>\n",
+        "example": 84,
+        "start_line": 1402,
+        "end_line": 1415,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "    Foo\n    ---\n\n    Foo\n---\n",
+        "html": "<pre><code>Foo\n---\n\nFoo\n</code></pre>\n<hr />\n",
+        "example": 85,
+        "start_line": 1420,
+        "end_line": 1433,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo\n   ----      \n",
+        "html": "<h2>Foo</h2>\n",
+        "example": 86,
+        "start_line": 1439,
+        "end_line": 1444,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo\n    ---\n",
+        "html": "<p>Foo\n---</p>\n",
+        "example": 87,
+        "start_line": 1449,
+        "end_line": 1455,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo\n= =\n\nFoo\n--- -\n",
+        "html": "<p>Foo\n= =</p>\n<p>Foo</p>\n<hr />\n",
+        "example": 88,
+        "start_line": 1460,
+        "end_line": 1471,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo  \n-----\n",
+        "html": "<h2>Foo</h2>\n",
+        "example": 89,
+        "start_line": 1476,
+        "end_line": 1481,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo\\\n----\n",
+        "html": "<h2>Foo\\</h2>\n",
+        "example": 90,
+        "start_line": 1486,
+        "end_line": 1491,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n",
+        "html": "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=&quot;a lot</h2>\n<p>of dashes&quot;/&gt;</p>\n",
+        "example": 91,
+        "start_line": 1497,
+        "end_line": 1510,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "> Foo\n---\n",
+        "html": "<blockquote>\n<p>Foo</p>\n</blockquote>\n<hr />\n",
+        "example": 92,
+        "start_line": 1516,
+        "end_line": 1524,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "> foo\nbar\n===\n",
+        "html": "<blockquote>\n<p>foo\nbar\n===</p>\n</blockquote>\n",
+        "example": 93,
+        "start_line": 1527,
+        "end_line": 1537,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "- Foo\n---\n",
+        "html": "<ul>\n<li>Foo</li>\n</ul>\n<hr />\n",
+        "example": 94,
+        "start_line": 1540,
+        "end_line": 1548,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo\nBar\n---\n",
+        "html": "<h2>Foo\nBar</h2>\n",
+        "example": 95,
+        "start_line": 1555,
+        "end_line": 1562,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "---\nFoo\n---\nBar\n---\nBaz\n",
+        "html": "<hr />\n<h2>Foo</h2>\n<h2>Bar</h2>\n<p>Baz</p>\n",
+        "example": 96,
+        "start_line": 1568,
+        "end_line": 1580,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "\n====\n",
+        "html": "<p>====</p>\n",
+        "example": 97,
+        "start_line": 1585,
+        "end_line": 1590,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "---\n---\n",
+        "html": "<hr />\n<hr />\n",
+        "example": 98,
+        "start_line": 1597,
+        "end_line": 1603,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "- foo\n-----\n",
+        "html": "<ul>\n<li>foo</li>\n</ul>\n<hr />\n",
+        "example": 99,
+        "start_line": 1606,
+        "end_line": 1614,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "    foo\n---\n",
+        "html": "<pre><code>foo\n</code></pre>\n<hr />\n",
+        "example": 100,
+        "start_line": 1617,
+        "end_line": 1624,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "> foo\n-----\n",
+        "html": "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr />\n",
+        "example": 101,
+        "start_line": 1627,
+        "end_line": 1635,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "\\> foo\n------\n",
+        "html": "<h2>&gt; foo</h2>\n",
+        "example": 102,
+        "start_line": 1641,
+        "end_line": 1646,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo\n\nbar\n---\nbaz\n",
+        "html": "<p>Foo</p>\n<h2>bar</h2>\n<p>baz</p>\n",
+        "example": 103,
+        "start_line": 1672,
+        "end_line": 1682,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo\nbar\n\n---\n\nbaz\n",
+        "html": "<p>Foo\nbar</p>\n<hr />\n<p>baz</p>\n",
+        "example": 104,
+        "start_line": 1688,
+        "end_line": 1700,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo\nbar\n* * *\nbaz\n",
+        "html": "<p>Foo\nbar</p>\n<hr />\n<p>baz</p>\n",
+        "example": 105,
+        "start_line": 1706,
+        "end_line": 1716,
+        "section": "Setext headings"
+    },
+    {
+        "markdown": "Foo\nbar\n\\---\nbaz\n",
+        "html": "<p>Foo\nbar\n---\nbaz</p>\n",
+        "example": 106,
+        "start_line": 1721,
+        "end_line": 1731,
+        "section": "Setext headings"
+    }
+]

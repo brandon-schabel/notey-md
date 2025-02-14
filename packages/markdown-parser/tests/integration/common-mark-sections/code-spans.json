@@ -1,0 +1,178 @@
+[
+    {
+        "markdown": "`foo`\n",
+        "html": "<p><code>foo</code></p>\n",
+        "example": 328,
+        "start_line": 5886,
+        "end_line": 5890,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "`` foo ` bar ``\n",
+        "html": "<p><code>foo ` bar</code></p>\n",
+        "example": 329,
+        "start_line": 5897,
+        "end_line": 5901,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "` `` `\n",
+        "html": "<p><code>``</code></p>\n",
+        "example": 330,
+        "start_line": 5907,
+        "end_line": 5911,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "`  ``  `\n",
+        "html": "<p><code> `` </code></p>\n",
+        "example": 331,
+        "start_line": 5915,
+        "end_line": 5919,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "` a`\n",
+        "html": "<p><code> a</code></p>\n",
+        "example": 332,
+        "start_line": 5924,
+        "end_line": 5928,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "` b `\n",
+        "html": "<p><code> b </code></p>\n",
+        "example": 333,
+        "start_line": 5933,
+        "end_line": 5937,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "` `\n`  `\n",
+        "html": "<p><code> </code>\n<code>  </code></p>\n",
+        "example": 334,
+        "start_line": 5941,
+        "end_line": 5947,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "``\nfoo\nbar  \nbaz\n``\n",
+        "html": "<p><code>foo bar   baz</code></p>\n",
+        "example": 335,
+        "start_line": 5952,
+        "end_line": 5960,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "``\nfoo \n``\n",
+        "html": "<p><code>foo </code></p>\n",
+        "example": 336,
+        "start_line": 5962,
+        "end_line": 5968,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "`foo   bar \nbaz`\n",
+        "html": "<p><code>foo   bar  baz</code></p>\n",
+        "example": 337,
+        "start_line": 5973,
+        "end_line": 5978,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "`foo\\`bar`\n",
+        "html": "<p><code>foo\\</code>bar`</p>\n",
+        "example": 338,
+        "start_line": 5990,
+        "end_line": 5994,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "``foo`bar``\n",
+        "html": "<p><code>foo`bar</code></p>\n",
+        "example": 339,
+        "start_line": 6001,
+        "end_line": 6005,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "` foo `` bar `\n",
+        "html": "<p><code>foo `` bar</code></p>\n",
+        "example": 340,
+        "start_line": 6007,
+        "end_line": 6011,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "*foo`*`\n",
+        "html": "<p>*foo<code>*</code></p>\n",
+        "example": 341,
+        "start_line": 6019,
+        "end_line": 6023,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "[not a `link](/foo`)\n",
+        "html": "<p>[not a <code>link](/foo</code>)</p>\n",
+        "example": 342,
+        "start_line": 6028,
+        "end_line": 6032,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "`<a href=\"`\">`\n",
+        "html": "<p><code>&lt;a href=&quot;</code>&quot;&gt;`</p>\n",
+        "example": 343,
+        "start_line": 6038,
+        "end_line": 6042,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "<a href=\"`\">`\n",
+        "html": "<p><a href=\"`\">`</p>\n",
+        "example": 344,
+        "start_line": 6047,
+        "end_line": 6051,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "`<https://foo.bar.`baz>`\n",
+        "html": "<p><code>&lt;https://foo.bar.</code>baz&gt;`</p>\n",
+        "example": 345,
+        "start_line": 6056,
+        "end_line": 6060,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "<https://foo.bar.`baz>`\n",
+        "html": "<p><a href=\"https://foo.bar.%60baz\">https://foo.bar.`baz</a>`</p>\n",
+        "example": 346,
+        "start_line": 6065,
+        "end_line": 6069,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "```foo``\n",
+        "html": "<p>```foo``</p>\n",
+        "example": 347,
+        "start_line": 6075,
+        "end_line": 6079,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "`foo\n",
+        "html": "<p>`foo</p>\n",
+        "example": 348,
+        "start_line": 6082,
+        "end_line": 6086,
+        "section": "Code spans"
+    },
+    {
+        "markdown": "`foo``bar``\n",
+        "html": "<p>`foo<code>bar</code></p>\n",
+        "example": 349,
+        "start_line": 6091,
+        "end_line": 6095,
+        "section": "Code spans"
+    }
+]

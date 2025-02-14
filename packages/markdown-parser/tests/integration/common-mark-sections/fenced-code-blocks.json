@@ -1,0 +1,234 @@
+[
+    {
+        "markdown": "```\n<\n >\n```\n",
+        "html": "<pre><code>&lt;\n &gt;\n</code></pre>\n",
+        "example": 119,
+        "start_line": 1980,
+        "end_line": 1989,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "~~~\n<\n >\n~~~\n",
+        "html": "<pre><code>&lt;\n &gt;\n</code></pre>\n",
+        "example": 120,
+        "start_line": 1994,
+        "end_line": 2003,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "``\nfoo\n``\n",
+        "html": "<p><code>foo</code></p>\n",
+        "example": 121,
+        "start_line": 2007,
+        "end_line": 2013,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "```\naaa\n~~~\n```\n",
+        "html": "<pre><code>aaa\n~~~\n</code></pre>\n",
+        "example": 122,
+        "start_line": 2018,
+        "end_line": 2027,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "~~~\naaa\n```\n~~~\n",
+        "html": "<pre><code>aaa\n```\n</code></pre>\n",
+        "example": 123,
+        "start_line": 2030,
+        "end_line": 2039,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "````\naaa\n```\n``````\n",
+        "html": "<pre><code>aaa\n```\n</code></pre>\n",
+        "example": 124,
+        "start_line": 2044,
+        "end_line": 2053,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "~~~~\naaa\n~~~\n~~~~\n",
+        "html": "<pre><code>aaa\n~~~\n</code></pre>\n",
+        "example": 125,
+        "start_line": 2056,
+        "end_line": 2065,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "```\n",
+        "html": "<pre><code></code></pre>\n",
+        "example": 126,
+        "start_line": 2071,
+        "end_line": 2075,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "`````\n\n```\naaa\n",
+        "html": "<pre><code>\n```\naaa\n</code></pre>\n",
+        "example": 127,
+        "start_line": 2078,
+        "end_line": 2088,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "> ```\n> aaa\n\nbbb\n",
+        "html": "<blockquote>\n<pre><code>aaa\n</code></pre>\n</blockquote>\n<p>bbb</p>\n",
+        "example": 128,
+        "start_line": 2091,
+        "end_line": 2102,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "```\n\n  \n```\n",
+        "html": "<pre><code>\n  \n</code></pre>\n",
+        "example": 129,
+        "start_line": 2107,
+        "end_line": 2116,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "```\n```\n",
+        "html": "<pre><code></code></pre>\n",
+        "example": 130,
+        "start_line": 2121,
+        "end_line": 2126,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": " ```\n aaa\naaa\n```\n",
+        "html": "<pre><code>aaa\naaa\n</code></pre>\n",
+        "example": 131,
+        "start_line": 2133,
+        "end_line": 2142,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "  ```\naaa\n  aaa\naaa\n  ```\n",
+        "html": "<pre><code>aaa\naaa\naaa\n</code></pre>\n",
+        "example": 132,
+        "start_line": 2145,
+        "end_line": 2156,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "   ```\n   aaa\n    aaa\n  aaa\n   ```\n",
+        "html": "<pre><code>aaa\n aaa\naaa\n</code></pre>\n",
+        "example": 133,
+        "start_line": 2159,
+        "end_line": 2170,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "    ```\n    aaa\n    ```\n",
+        "html": "<pre><code>```\naaa\n```\n</code></pre>\n",
+        "example": 134,
+        "start_line": 2175,
+        "end_line": 2184,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "```\naaa\n  ```\n",
+        "html": "<pre><code>aaa\n</code></pre>\n",
+        "example": 135,
+        "start_line": 2190,
+        "end_line": 2197,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "   ```\naaa\n  ```\n",
+        "html": "<pre><code>aaa\n</code></pre>\n",
+        "example": 136,
+        "start_line": 2200,
+        "end_line": 2207,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "```\naaa\n    ```\n",
+        "html": "<pre><code>aaa\n    ```\n</code></pre>\n",
+        "example": 137,
+        "start_line": 2212,
+        "end_line": 2220,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "``` ```\naaa\n",
+        "html": "<p><code> </code>\naaa</p>\n",
+        "example": 138,
+        "start_line": 2226,
+        "end_line": 2232,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "~~~~~~\naaa\n~~~ ~~\n",
+        "html": "<pre><code>aaa\n~~~ ~~\n</code></pre>\n",
+        "example": 139,
+        "start_line": 2235,
+        "end_line": 2243,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "foo\n```\nbar\n```\nbaz\n",
+        "html": "<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n",
+        "example": 140,
+        "start_line": 2249,
+        "end_line": 2260,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "foo\n---\n~~~\nbar\n~~~\n# baz\n",
+        "html": "<h2>foo</h2>\n<pre><code>bar\n</code></pre>\n<h1>baz</h1>\n",
+        "example": 141,
+        "start_line": 2266,
+        "end_line": 2278,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "```ruby\ndef foo(x)\n  return 3\nend\n```\n",
+        "html": "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n",
+        "example": 142,
+        "start_line": 2288,
+        "end_line": 2299,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "~~~~    ruby startline=3 $%@#$\ndef foo(x)\n  return 3\nend\n~~~~~~~\n",
+        "html": "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n",
+        "example": 143,
+        "start_line": 2302,
+        "end_line": 2313,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "````;\n````\n",
+        "html": "<pre><code class=\"language-;\"></code></pre>\n",
+        "example": 144,
+        "start_line": 2316,
+        "end_line": 2321,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "``` aa ```\nfoo\n",
+        "html": "<p><code>aa</code>\nfoo</p>\n",
+        "example": 145,
+        "start_line": 2326,
+        "end_line": 2332,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "~~~ aa ``` ~~~\nfoo\n~~~\n",
+        "html": "<pre><code class=\"language-aa\">foo\n</code></pre>\n",
+        "example": 146,
+        "start_line": 2337,
+        "end_line": 2344,
+        "section": "Fenced code blocks"
+    },
+    {
+        "markdown": "```\n``` aaa\n```\n",
+        "html": "<pre><code>``` aaa\n</code></pre>\n",
+        "example": 147,
+        "start_line": 2349,
+        "end_line": 2356,
+        "section": "Fenced code blocks"
+    }
+]

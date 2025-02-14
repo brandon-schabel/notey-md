@@ -1,0 +1,90 @@
+[
+    {
+        "markdown": "\tfoo\tbaz\t\tbim\n",
+        "html": "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n",
+        "example": 1,
+        "start_line": 355,
+        "end_line": 360,
+        "section": "Tabs"
+    },
+    {
+        "markdown": "  \tfoo\tbaz\t\tbim\n",
+        "html": "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n",
+        "example": 2,
+        "start_line": 362,
+        "end_line": 367,
+        "section": "Tabs"
+    },
+    {
+        "markdown": "    a\ta\n    \u1f50\ta\n",
+        "html": "<pre><code>a\ta\n\u1f50\ta\n</code></pre>\n",
+        "example": 3,
+        "start_line": 369,
+        "end_line": 376,
+        "section": "Tabs"
+    },
+    {
+        "markdown": "  - foo\n\n\tbar\n",
+        "html": "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n",
+        "example": 4,
+        "start_line": 382,
+        "end_line": 393,
+        "section": "Tabs"
+    },
+    {
+        "markdown": "- foo\n\n\t\tbar\n",
+        "html": "<ul>\n<li>\n<p>foo</p>\n<pre><code>  bar\n</code></pre>\n</li>\n</ul>\n",
+        "example": 5,
+        "start_line": 395,
+        "end_line": 407,
+        "section": "Tabs"
+    },
+    {
+        "markdown": ">\t\tfoo\n",
+        "html": "<blockquote>\n<pre><code>  foo\n</code></pre>\n</blockquote>\n",
+        "example": 6,
+        "start_line": 418,
+        "end_line": 425,
+        "section": "Tabs"
+    },
+    {
+        "markdown": "-\t\tfoo\n",
+        "html": "<ul>\n<li>\n<pre><code>  foo\n</code></pre>\n</li>\n</ul>\n",
+        "example": 7,
+        "start_line": 427,
+        "end_line": 436,
+        "section": "Tabs"
+    },
+    {
+        "markdown": "    foo\n\tbar\n",
+        "html": "<pre><code>foo\nbar\n</code></pre>\n",
+        "example": 8,
+        "start_line": 439,
+        "end_line": 446,
+        "section": "Tabs"
+    },
+    {
+        "markdown": " - foo\n   - bar\n\t - baz\n",
+        "html": "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n",
+        "example": 9,
+        "start_line": 448,
+        "end_line": 464,
+        "section": "Tabs"
+    },
+    {
+        "markdown": "#\tFoo\n",
+        "html": "<h1>Foo</h1>\n",
+        "example": 10,
+        "start_line": 466,
+        "end_line": 470,
+        "section": "Tabs"
+    },
+    {
+        "markdown": "*\t*\t*\t\n",
+        "html": "<hr />\n",
+        "example": 11,
+        "start_line": 472,
+        "end_line": 476,
+        "section": "Tabs"
+    }
+]

@@ -1,0 +1,354 @@
+[
+    {
+        "markdown": "<table><tr><td>\n<pre>\n**Hello**,\n\n_world_.\n</pre>\n</td></tr></table>\n",
+        "html": "<table><tr><td>\n<pre>\n**Hello**,\n<p><em>world</em>.\n</pre></p>\n</td></tr></table>\n",
+        "example": 148,
+        "start_line": 2428,
+        "end_line": 2443,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<table>\n  <tr>\n    <td>\n           hi\n    </td>\n  </tr>\n</table>\n\nokay.\n",
+        "html": "<table>\n  <tr>\n    <td>\n           hi\n    </td>\n  </tr>\n</table>\n<p>okay.</p>\n",
+        "example": 149,
+        "start_line": 2457,
+        "end_line": 2476,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": " <div>\n  *hello*\n         <foo><a>\n",
+        "html": " <div>\n  *hello*\n         <foo><a>\n",
+        "example": 150,
+        "start_line": 2479,
+        "end_line": 2487,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "</div>\n*foo*\n",
+        "html": "</div>\n*foo*\n",
+        "example": 151,
+        "start_line": 2492,
+        "end_line": 2498,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<DIV CLASS=\"foo\">\n\n*Markdown*\n\n</DIV>\n",
+        "html": "<DIV CLASS=\"foo\">\n<p><em>Markdown</em></p>\n</DIV>\n",
+        "example": 152,
+        "start_line": 2503,
+        "end_line": 2513,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div id=\"foo\"\n  class=\"bar\">\n</div>\n",
+        "html": "<div id=\"foo\"\n  class=\"bar\">\n</div>\n",
+        "example": 153,
+        "start_line": 2519,
+        "end_line": 2527,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div id=\"foo\" class=\"bar\n  baz\">\n</div>\n",
+        "html": "<div id=\"foo\" class=\"bar\n  baz\">\n</div>\n",
+        "example": 154,
+        "start_line": 2530,
+        "end_line": 2538,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div>\n*foo*\n\n*bar*\n",
+        "html": "<div>\n*foo*\n<p><em>bar</em></p>\n",
+        "example": 155,
+        "start_line": 2542,
+        "end_line": 2551,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div id=\"foo\"\n*hi*\n",
+        "html": "<div id=\"foo\"\n*hi*\n",
+        "example": 156,
+        "start_line": 2558,
+        "end_line": 2564,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div class\nfoo\n",
+        "html": "<div class\nfoo\n",
+        "example": 157,
+        "start_line": 2567,
+        "end_line": 2573,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div *???-&&&-<---\n*foo*\n",
+        "html": "<div *???-&&&-<---\n*foo*\n",
+        "example": 158,
+        "start_line": 2579,
+        "end_line": 2585,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div><a href=\"bar\">*foo*</a></div>\n",
+        "html": "<div><a href=\"bar\">*foo*</a></div>\n",
+        "example": 159,
+        "start_line": 2591,
+        "end_line": 2595,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<table><tr><td>\nfoo\n</td></tr></table>\n",
+        "html": "<table><tr><td>\nfoo\n</td></tr></table>\n",
+        "example": 160,
+        "start_line": 2598,
+        "end_line": 2606,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div></div>\n``` c\nint x = 33;\n```\n",
+        "html": "<div></div>\n``` c\nint x = 33;\n```\n",
+        "example": 161,
+        "start_line": 2615,
+        "end_line": 2625,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<a href=\"foo\">\n*bar*\n</a>\n",
+        "html": "<a href=\"foo\">\n*bar*\n</a>\n",
+        "example": 162,
+        "start_line": 2632,
+        "end_line": 2640,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<Warning>\n*bar*\n</Warning>\n",
+        "html": "<Warning>\n*bar*\n</Warning>\n",
+        "example": 163,
+        "start_line": 2645,
+        "end_line": 2653,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<i class=\"foo\">\n*bar*\n</i>\n",
+        "html": "<i class=\"foo\">\n*bar*\n</i>\n",
+        "example": 164,
+        "start_line": 2656,
+        "end_line": 2664,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "</ins>\n*bar*\n",
+        "html": "</ins>\n*bar*\n",
+        "example": 165,
+        "start_line": 2667,
+        "end_line": 2673,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<del>\n*foo*\n</del>\n",
+        "html": "<del>\n*foo*\n</del>\n",
+        "example": 166,
+        "start_line": 2682,
+        "end_line": 2690,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<del>\n\n*foo*\n\n</del>\n",
+        "html": "<del>\n<p><em>foo</em></p>\n</del>\n",
+        "example": 167,
+        "start_line": 2697,
+        "end_line": 2707,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<del>*foo*</del>\n",
+        "html": "<p><del><em>foo</em></del></p>\n",
+        "example": 168,
+        "start_line": 2715,
+        "end_line": 2719,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<pre language=\"haskell\"><code>\nimport Text.HTML.TagSoup\n\nmain :: IO ()\nmain = print $ parseTags tags\n</code></pre>\nokay\n",
+        "html": "<pre language=\"haskell\"><code>\nimport Text.HTML.TagSoup\n\nmain :: IO ()\nmain = print $ parseTags tags\n</code></pre>\n<p>okay</p>\n",
+        "example": 169,
+        "start_line": 2731,
+        "end_line": 2747,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<script type=\"text/javascript\">\n// JavaScript example\n\ndocument.getElementById(\"demo\").innerHTML = \"Hello JavaScript!\";\n</script>\nokay\n",
+        "html": "<script type=\"text/javascript\">\n// JavaScript example\n\ndocument.getElementById(\"demo\").innerHTML = \"Hello JavaScript!\";\n</script>\n<p>okay</p>\n",
+        "example": 170,
+        "start_line": 2752,
+        "end_line": 2766,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<textarea>\n\n*foo*\n\n_bar_\n\n</textarea>\n",
+        "html": "<textarea>\n\n*foo*\n\n_bar_\n\n</textarea>\n",
+        "example": 171,
+        "start_line": 2771,
+        "end_line": 2787,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<style\n  type=\"text/css\">\nh1 {color:red;}\n\np {color:blue;}\n</style>\nokay\n",
+        "html": "<style\n  type=\"text/css\">\nh1 {color:red;}\n\np {color:blue;}\n</style>\n<p>okay</p>\n",
+        "example": 172,
+        "start_line": 2791,
+        "end_line": 2807,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<style\n  type=\"text/css\">\n\nfoo\n",
+        "html": "<style\n  type=\"text/css\">\n\nfoo\n",
+        "example": 173,
+        "start_line": 2814,
+        "end_line": 2824,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "> <div>\n> foo\n\nbar\n",
+        "html": "<blockquote>\n<div>\nfoo\n</blockquote>\n<p>bar</p>\n",
+        "example": 174,
+        "start_line": 2827,
+        "end_line": 2838,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "- <div>\n- foo\n",
+        "html": "<ul>\n<li>\n<div>\n</li>\n<li>foo</li>\n</ul>\n",
+        "example": 175,
+        "start_line": 2841,
+        "end_line": 2851,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<style>p{color:red;}</style>\n*foo*\n",
+        "html": "<style>p{color:red;}</style>\n<p><em>foo</em></p>\n",
+        "example": 176,
+        "start_line": 2856,
+        "end_line": 2862,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<!-- foo -->*bar*\n*baz*\n",
+        "html": "<!-- foo -->*bar*\n<p><em>baz</em></p>\n",
+        "example": 177,
+        "start_line": 2865,
+        "end_line": 2871,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<script>\nfoo\n</script>1. *bar*\n",
+        "html": "<script>\nfoo\n</script>1. *bar*\n",
+        "example": 178,
+        "start_line": 2877,
+        "end_line": 2885,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<!-- Foo\n\nbar\n   baz -->\nokay\n",
+        "html": "<!-- Foo\n\nbar\n   baz -->\n<p>okay</p>\n",
+        "example": 179,
+        "start_line": 2890,
+        "end_line": 2902,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<?php\n\n  echo '>';\n\n?>\nokay\n",
+        "html": "<?php\n\n  echo '>';\n\n?>\n<p>okay</p>\n",
+        "example": 180,
+        "start_line": 2908,
+        "end_line": 2922,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<!DOCTYPE html>\n",
+        "html": "<!DOCTYPE html>\n",
+        "example": 181,
+        "start_line": 2927,
+        "end_line": 2931,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<![CDATA[\nfunction matchwo(a,b)\n{\n  if (a < b && a < 0) then {\n    return 1;\n\n  } else {\n\n    return 0;\n  }\n}\n]]>\nokay\n",
+        "html": "<![CDATA[\nfunction matchwo(a,b)\n{\n  if (a < b && a < 0) then {\n    return 1;\n\n  } else {\n\n    return 0;\n  }\n}\n]]>\n<p>okay</p>\n",
+        "example": 182,
+        "start_line": 2936,
+        "end_line": 2964,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "  <!-- foo -->\n\n    <!-- foo -->\n",
+        "html": "  <!-- foo -->\n<pre><code>&lt;!-- foo --&gt;\n</code></pre>\n",
+        "example": 183,
+        "start_line": 2970,
+        "end_line": 2978,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "  <div>\n\n    <div>\n",
+        "html": "  <div>\n<pre><code>&lt;div&gt;\n</code></pre>\n",
+        "example": 184,
+        "start_line": 2981,
+        "end_line": 2989,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "Foo\n<div>\nbar\n</div>\n",
+        "html": "<p>Foo</p>\n<div>\nbar\n</div>\n",
+        "example": 185,
+        "start_line": 2995,
+        "end_line": 3005,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div>\nbar\n</div>\n*foo*\n",
+        "html": "<div>\nbar\n</div>\n*foo*\n",
+        "example": 186,
+        "start_line": 3012,
+        "end_line": 3022,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "Foo\n<a href=\"bar\">\nbaz\n",
+        "html": "<p>Foo\n<a href=\"bar\">\nbaz</p>\n",
+        "example": 187,
+        "start_line": 3027,
+        "end_line": 3035,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div>\n\n*Emphasized* text.\n\n</div>\n",
+        "html": "<div>\n<p><em>Emphasized</em> text.</p>\n</div>\n",
+        "example": 188,
+        "start_line": 3068,
+        "end_line": 3078,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<div>\n*Emphasized* text.\n</div>\n",
+        "html": "<div>\n*Emphasized* text.\n</div>\n",
+        "example": 189,
+        "start_line": 3081,
+        "end_line": 3089,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<table>\n\n<tr>\n\n<td>\nHi\n</td>\n\n</tr>\n\n</table>\n",
+        "html": "<table>\n<tr>\n<td>\nHi\n</td>\n</tr>\n</table>\n",
+        "example": 190,
+        "start_line": 3103,
+        "end_line": 3123,
+        "section": "HTML blocks"
+    },
+    {
+        "markdown": "<table>\n\n  <tr>\n\n    <td>\n      Hi\n    </td>\n\n  </tr>\n\n</table>\n",
+        "html": "<table>\n  <tr>\n<pre><code>&lt;td&gt;\n  Hi\n&lt;/td&gt;\n</code></pre>\n  </tr>\n</table>\n",
+        "example": 191,
+        "start_line": 3130,
+        "end_line": 3151,
+        "section": "HTML blocks"
+    }
+]
