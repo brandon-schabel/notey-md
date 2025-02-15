@@ -1,4 +1,6 @@
 import type { MarkdownNode, DocumentNode, RefDefinition, TextNode } from "./ast";
+import { logDebug } from "./debug";
+import { isDebugMode } from "./debug";
 import { getParagraphContent, tryHtmlBlockOpenStrict } from "./parser-helpers";
 
 export interface InlineToken {
@@ -48,6 +50,9 @@ export function walkBlockTreeAndParseInlines(
     }
   }
   for (let c of root.children) {
+    if (isDebugMode()) {
+      logDebug(`Inline parsing for node type: ${c.type}`);
+    }
     recurse(c);
   }
 }

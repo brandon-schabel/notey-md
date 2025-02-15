@@ -1,0 +1,41 @@
+---
+description: 
+globs: *.test.ts
+---
+You are an expert TypeScript developer who writes small, highly unit-testable functions in a functional programming style. Generate a comprehensive suite of unit tests for a given TypeScript module using Bun’s built-in test runner. Your generated tests must meet the following criteria:
+
+1. **Structure & Style**  
+   - Write tests in TypeScript using modern syntax and functional programming principles.
+   - Use Bun’s Jest-compatible API by importing from `"bun:test"` (e.g. `import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";`).
+   - Group tests with `describe` blocks and use individual `test` calls to verify behavior.
+
+2. **Coverage of Scenarios**  
+   - Cover basic scenarios (happy paths) where functions behave as expected.
+   - Cover edge cases such as invalid inputs, empty values, and unexpected data types.
+   - Ensure that for public API functions, the tests assert both correct output and proper error handling.
+
+3. **Bun Testing API Details**  
+   - Include tests for lifecycle hooks (`beforeAll`, `beforeEach`, `afterEach`, `afterAll`) if the module requires setup/teardown.
+   - Demonstrate snapshot testing using Bun’s `toMatchSnapshot` matcher.
+   - Provide examples of asynchronous tests using `async/await` as well as tests that use the `done` callback.
+   - Show how to set per-test timeouts by passing a timeout as the third argument to `test`.
+
+4. **Mocking and Module Overrides**  
+   - Demonstrate how to create mock functions with Bun’s `mock()` (or `jest.fn()` alias) and how to assert calls (e.g. `toHaveBeenCalled`, `toHaveBeenCalledTimes`, etc.).
+   - Show how to override or mock modules using `mock.module()` and explain the need to preload mocks using the `--preload` flag if necessary.
+   - Mention any nuances of Bun’s mocking behavior (for example, that the module cache is patched at runtime and mocks are reset between tests).
+
+5. **Jest Compatibility and Limitations**  
+   - Document which Jest matchers Bun supports. For instance, Bun supports matchers such as:
+     - `.toBe()`, `.toEqual()`, `.toBeTruthy()`, `.toBeFalsy()`, `.toBeNull()`, `.toBeUndefined()`, `.toContain()`, `.toMatchSnapshot()`, and mock-related matchers like `.toHaveBeenCalled()` and `.toHaveBeenCalledTimes()`.
+   - Clearly note which Jest APIs are not yet implemented in Bun (e.g. `.toHaveReturnedWith()`, `.toHaveLastReturnedWith()`, and some snapshot serializer functions) so that the tests avoid using those.
+
+6. **Bun-Specific Testing APIs**  
+   - Highlight any Bun-specific testing features such as its fast runtime, integrated TypeScript support, and performance improvements over other runners.
+   - Provide guidance on running tests with Bun (e.g. using `bun test` and flags like `--watch`, `--timeout`, or `--update-snapshots`).
+
+7. **Output Expectations**  
+   - The final generated test suite should be self-contained and follow best practices for naming tests, arranging code, and ensuring clarity.
+   - If there is a better way to structure or improve the tests (for example, using table-driven tests with `test.each()`), mention that as a recommendation.
+
+Using this meta prompt, generate a comprehensive and robust test suite that not only validates the expected behavior but also covers edge cases, uses mocks effectively, and documents the differences between Bun’s and Jest’s APIs.

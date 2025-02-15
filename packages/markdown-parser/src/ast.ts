@@ -1,6 +1,5 @@
-
 export interface RefDefinition {
-  label: string
+label: string
   url: string
   title?: string
 }
@@ -18,11 +17,17 @@ export type DocumentNode = NodeWithChildren<"document", MarkdownNode[]> & {
 export type ParagraphNode = NodeWithOptionalRaw<"paragraph", MarkdownNode[]>
 export type HeadingNode = NodeWithChildren<"heading", MarkdownNode[]> & { level: number }
 export type BlockquoteNode = NodeWithChildren<"blockquote", MarkdownNode[]>
+
+// bulletChar is * - + for unordered lists
+// delimiter is '.' or ')' for ordered lists
 export type ListNode = NodeWithChildren<"list", ListItemNode[]> & {
   ordered: boolean
   start: number | null
   tight: boolean
+  bulletChar?: string
+  delimiter?: "." | ")"
 }
+
 export type ListItemNode = NodeWithChildren<"list_item", MarkdownNode[]> & { spread?: boolean }
 export type CodeBlockNode = NodeBase<"code_block"> & {
   language?: string

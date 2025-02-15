@@ -1,18 +1,21 @@
 import type { CodeBlockNode, RefDefinition, ParagraphNode } from "./ast";
 
-// No changes to these existing helpers:
 export function getParagraphContent(node: ParagraphNode) {
   return node._raw || "";
 }
+
 export function setParagraphContent(node: ParagraphNode, text: string) {
   node._raw = text;
 }
+
 export function appendContentToCode(block: CodeBlockNode, line: string) {
   block.value = block.value ? block.value + "\n" + line : line;
 }
+
 export function normalizeRefLabel(str: string) {
   return str.trim().toLowerCase().replace(/\s+/g, " ");
 }
+
 export function parseRefDefLine(line: string): RefDefinition | null {
   const re =
     /^[ ]{0,3}\[([^\]]+)\]:\s*(?:<(.*?)>|(\S+))\s*(?:"([^"]*)"|'([^']*)'|\(([^)]*)\))?\s*$/;
@@ -24,9 +27,6 @@ export function parseRefDefLine(line: string): RefDefinition | null {
   return { label, url, title };
 }
 
-/**
- * Tries to determine whether the given trimmed line should open a strict HTML block.
- */
 export function tryHtmlBlockOpenStrict(line: string): { content: string } | null {
   if (/^<!--(.*?)-->/.test(line)) return { content: line };
   if (/^<\?[^>]*\?>/.test(line)) return { content: line };
@@ -44,29 +44,32 @@ export function tryHtmlBlockOpenStrict(line: string): { content: string } | null
 }
 
 /**
- * Parses either a bullet list marker (* + -) or an ordered list marker (1. or 1) etc.
- * Returns the leftover text (the item content) plus whether it's ordered, any bullet char, etc.
+ * Parses a line to see if it begins a list item:
+ * - bullet: * + - with optional indentation
+ * - ordered: [0-9]+ followed by '.' or ')'
+ * Returns the leftover text plus bulletChar/delimiter if found
  */
 export function parseListLine(line: string): {
   ordered: boolean;
   start: number;
   bulletChar?: string;
+  delimiter?: "." | ")";
   content: string;
 } | null {
-  // bullet pattern
-  const bulletRe = /^[ ]{0,3}([*+\-])(\s+)(.*)$/;
+  const bulletRe = /^[ ]{0,3}([*+\-])([ \t]+)(.*)$/;
   const mBullet = line.match(bulletRe);
   if (mBullet) {
     return {
       ordered: false,
       start: 1,
       bulletChar: mBullet[1],
+      delimiter: undefined,
       content: mBullet[3] || "",
     };
   }
 
-  // ordered pattern: e.g. "2. something" or "2) something"
-  const ordRe = /^[ ]{0,3}(\d{1,9})([.)])(\s+)(.*)$/;
+  // includes both . and ) for delimiter
+  const ordRe = /^[ ]{0,3}(\d{1,9})([.)])([ \t]+)(.*)$/;
   const mOrd = line.match(ordRe);
   if (mOrd) {
     let n = parseInt(mOrd[1], 10);
@@ -74,6 +77,8 @@ export function parseListLine(line: string): {
     return {
       ordered: true,
       start: n,
+      bulletChar: undefined,
+      delimiter: mOrd[2] as "." | ")",
       content: mOrd[4] || "",
     };
   }

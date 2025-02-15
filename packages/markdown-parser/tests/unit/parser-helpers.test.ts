@@ -1,4 +1,4 @@
-import { tryHtmlBlockOpenStrict, parseListLine } from "@/parser-helpers";
+import { tryHtmlBlockOpenStrict, parseListLine, parseRefDefLine, normalizeRefLabel } from "@/parser-helpers";
 import { test, describe, expect } from "bun:test";
 
 describe("tryHtmlBlockOpenStrict", () => {
@@ -149,5 +149,122 @@ describe("parseListLine", () => {
         const res2 = parseListLine("1.     Multiple spaces");
         expect(res2).toEqual({ ordered: true, start: 1, content: "Multiple spaces" });
     });
+});
+
+describe("parser-helpers", () => {
+  describe("parseRefDefLine", () => {
+    test("should parse a valid reference definition with <> URL", () => {
+      const line = '[ref]: <https://example.com> "Title"';
+      const expected = {
+        label: "ref",
+        url: "https://example.com",
+        title: "Title",
+      };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+
+    test("should parse a valid reference definition with a bare URL", () => {
+      const line = "[ref]: https://example.com 'Title'";
+      const expected = {
+        label: "ref",
+        url: "https://example.com",
+        title: "Title",
+      };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+
+    test("should parse a valid reference definition with a bare URL and no title", () => {
+      const line = "[ref]: https://example.com";
+      const expected = {
+        label: "ref",
+        url: "https://example.com",
+        title: undefined,
+      };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+
+    test("should parse a valid reference definition with () title", () => {
+      const line = '[ref]: https://example.com (Title)';
+      const expected = { label: 'ref', url: 'https://example.com', title: 'Title' };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+
+    test("should handle up to 3 leading spaces", () => {
+      const line = '   [ref]: https://example.com';
+      const expected = { label: 'ref', url: 'https://example.com', title: undefined };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+
+    test("should return null if more than 3 leading spaces", () => {
+      const line = '    [ref]: https://example.com';
+      expect(parseRefDefLine(line)).toBeNull();
+    });
+
+    test("should return null for invalid reference definition", () => {
+      const line = "This is not a [ref] definition";
+      expect(parseRefDefLine(line)).toBeNull();
+    });
+
+    test("should handle empty label", () => {
+      const line = "[]: https://example.com";
+      const expected = { label: "", url: "https://example.com", title: undefined };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+
+    test("should handle empty URL", () => {
+      const line = "[ref]: <>";
+      const expected = { label: "ref", url: "", title: undefined };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+
+    test("should handle URL with special characters", () => {
+      const line = "[ref]: <https://example.com/path?query=string#fragment>";
+      const expected = {
+        label: "ref",
+        url: "https://example.com/path?query=string#fragment",
+        title: undefined,
+      };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+
+    test("should handle title with escaped quotes", () => {
+      const line = '[ref]: https://example.com "Title with \\"quotes\\""';
+      const expected = {
+        label: "ref",
+        url: "https://example.com",
+        title: 'Title with "quotes"',
+      };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+
+    test("should handle no space before title", () => {
+      const line = '[ref]: https://example.com"Title"'; // No space
+      const expected = {
+        label: "ref",
+        url: "https://example.com",
+        title: undefined, // Title is not parsed
+      };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+
+    test("should handle title with mixed quotes", () => {
+      const line = "[ref]: https://example.com 'Title with \"quotes\"'";
+      const expected = {
+        label: "ref",
+        url: "https://example.com",
+        title: 'Title with "quotes"',
+      };
+      expect(parseRefDefLine(line)).toEqual(expected);
+    });
+  });
+
+  describe("normalizeRefLabel", () => {
+    test("should lowercase and trim", () => {
+      expect(normalizeRefLabel("  MyRef  ")).toBe("myref");
+    });
+    test("should normalize spaces", () => {
+      expect(normalizeRefLabel("My   Ref  Label")).toBe("my ref label");
+    });
+  });
 });
 
