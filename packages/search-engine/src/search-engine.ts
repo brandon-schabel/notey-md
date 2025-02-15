@@ -41,19 +41,19 @@ export class SearchEngine {
     }
 
     /**
-     * Exact search by default; you can add a fuzzy version or an option param here if needed.
+     * Fuzzy search by default.
      */
     public search(query: string): SearchResult[] {
         return searchFuzzy(query, this.index, this.docMap);
     }
 
     /**
-     * (Optional) Convert entire index to JSON for caching on disk.
+     * Convert the entire index to JSON for caching on disk.
      */
     public toJSON(): any {
         const indexObject: Record<string, Array<[number, number]>> = {};
         for (const [word, docMap] of Object.entries(this.index)) {
-            indexObject[word] = Array.from((docMap as Map<number, number>).entries()); // [ [docId, freq], ...]
+            indexObject[word] = Array.from(docMap.entries()); // [ [docId, freq], ...]
         }
         return {
             index: indexObject,
@@ -64,13 +64,12 @@ export class SearchEngine {
     }
 
     /**
-     * (Optional) Load entire index from JSON (reverse of toJSON()).
+     * Load an index from JSON (reverse of toJSON()).
      */
     public fromJSON(data: any): void {
         this.index = {};
         for (const [word, arr] of Object.entries(data.index)) {
-            // arr is [ [docId, freq], ...]
-            this.index[word] = new Map(arr as [number, number][]); // Explicit type assertion
+            this.index[word] = new Map(arr as [number, number][]);
         }
         this.docMap = data.docMap;
         this.reverseDocMap = data.reverseDocMap;

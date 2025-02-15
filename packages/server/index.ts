@@ -29,7 +29,6 @@ export const defaultConfig: AppConfig = {
             : resolve(directoryForThisModule, "notes"),
 };
 
-console.log("process.env.NODE_ENV", process.env.NODE_ENV);
 const isDev = process.env.NODE_ENV !== "production";
 console.log("isDev", isDev);
 
@@ -58,12 +57,23 @@ export function createServer(config: AppConfig): Server {
 }
 
 export async function startServer(config: AppConfig): Promise<Server> {
-    await ensureVaultDirectoryExists(config.vaultPath);
-    await buildSearchIndex(config, searchEngine);
-    const manager = PluginManager.getInstance();
-    const server = createServer(config);
-    watchVaultFolder(config.vaultPath, searchEngine);
-    return server;
+    try {
+        await ensureVaultDirectoryExists(config.vaultPath);
+        await buildSearchIndex(config, searchEngine);
+    } catch (error) {
+        console.error("Error during vault check or search index creation:", error);
+        process.exit(1);
+    }
+
+    try {
+        const manager = PluginManager.getInstance();
+        const server = createServer(config);
+        watchVaultFolder(config.vaultPath, searchEngine);
+        return server;
+    } catch (error) {
+        console.error("Error during server startup:", error);
+        process.exit(1);
+    }
 }
 
 function watchVaultFolder(vaultPath: string, engine: SearchEngine) {

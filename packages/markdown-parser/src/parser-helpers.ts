@@ -1,21 +1,18 @@
 import type { CodeBlockNode, RefDefinition, ParagraphNode } from "./ast";
 
+// No changes to these existing helpers:
 export function getParagraphContent(node: ParagraphNode) {
   return node._raw || "";
 }
-
 export function setParagraphContent(node: ParagraphNode, text: string) {
   node._raw = text;
 }
-
 export function appendContentToCode(block: CodeBlockNode, line: string) {
   block.value = block.value ? block.value + "\n" + line : line;
 }
-
 export function normalizeRefLabel(str: string) {
   return str.trim().toLowerCase().replace(/\s+/g, " ");
 }
-
 export function parseRefDefLine(line: string): RefDefinition | null {
   const re =
     /^[ ]{0,3}\[([^\]]+)\]:\s*(?:<(.*?)>|(\S+))\s*(?:"([^"]*)"|'([^']*)'|\(([^)]*)\))?\s*$/;
@@ -43,5 +40,43 @@ export function tryHtmlBlockOpenStrict(line: string): { content: string } | null
   ) {
     return { content: line };
   }
+  return null;
+}
+
+/**
+ * Parses either a bullet list marker (* + -) or an ordered list marker (1. or 1) etc.
+ * Returns the leftover text (the item content) plus whether it's ordered, any bullet char, etc.
+ */
+export function parseListLine(line: string): {
+  ordered: boolean;
+  start: number;
+  bulletChar?: string;
+  content: string;
+} | null {
+  // bullet pattern
+  const bulletRe = /^[ ]{0,3}([*+\-])(\s+)(.*)$/;
+  const mBullet = line.match(bulletRe);
+  if (mBullet) {
+    return {
+      ordered: false,
+      start: 1,
+      bulletChar: mBullet[1],
+      content: mBullet[3] || "",
+    };
+  }
+
+  // ordered pattern: e.g. "2. something" or "2) something"
+  const ordRe = /^[ ]{0,3}(\d{1,9})([.)])(\s+)(.*)$/;
+  const mOrd = line.match(ordRe);
+  if (mOrd) {
+    let n = parseInt(mOrd[1], 10);
+    if (isNaN(n)) n = 1;
+    return {
+      ordered: true,
+      start: n,
+      content: mOrd[4] || "",
+    };
+  }
+
   return null;
 }

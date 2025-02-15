@@ -4,18 +4,49 @@ import {
     tokenize,
     buildIndexForFile,
     removeDocFromIndex,
+    computeTermFrequency,
 } from "./indexer";
 import type { SearchIndex } from "./types";
+
+describe("computeTermFrequency", () => {
+    it("should return an empty object for an empty array", () => {
+        expect(computeTermFrequency([])).toEqual({});
+    });
+
+    it("should correctly count single occurrences", () => {
+        expect(computeTermFrequency(["hello"])).toEqual({ hello: 1 });
+    });
+
+    it("should correctly count multiple occurrences", () => {
+        expect(computeTermFrequency(["hello", "world", "hello"])).toEqual({
+            hello: 2,
+            world: 1,
+        });
+    });
+
+    it("should handle mixed case and return lowercase keys", () => {
+        expect(computeTermFrequency(["Hello", "World", "hello"])).toEqual({
+            hello: 2,
+            world: 1,
+        });
+    });
+     it("should handle numbers", () => {
+        expect(computeTermFrequency(["123", "456", "123"])).toEqual({
+            123: 2,
+            456: 1,
+        });
+    });
+});
 
 describe("extractPlainText", () => {
     it("removes code blocks completely", () => {
         const input = `
-  \`\`\`
-  function helloWorld() {
-    console.log("Hello, World!");
-  }
-  \`\`\`
-  `;
+\`\`\`
+function helloWorld() {
+console.log("Hello, World!");
+}
+\`\`\`
+`;
         const output = extractPlainText(input);
         expect(output).toBe("");
     });

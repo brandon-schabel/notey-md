@@ -1,6 +1,6 @@
 import type { HeadingNode, ParagraphNode, BlockquoteNode, CodeBlockNode, ListNode, DocumentNode, ThematicBreakNode, HtmlBlockNode, ListItemNode, RefDefinition, MarkdownNode } from "@/ast";
 import { test, describe, expect } from "bun:test";
-import { blockPhase, canContainLine, consumeContainerMarkers, tryOpenNewContainers, closeParagraphIfOpen, handleBlankLine, closeBlock, parseAtxHeading, isThematicBreak, getListMarker, tryHtmlBlockOpen,} from "@/block-parser";
+import { blockPhase, canContainLine, consumeContainerMarkers, tryOpenNewContainers, closeParagraphIfOpen, handleBlankLine, closeBlock, parseAtxHeading, isThematicBreak, } from "@/block-parser";
 import { getParagraphContent, normalizeRefLabel, parseRefDefLine, setParagraphContent } from "@/parser-helpers";
 
 describe("blockPhase - Basic Functionality", () => {
@@ -96,9 +96,9 @@ describe("blockPhase - Basic Functionality", () => {
         expect(li.children.length).toBe(2);   // 2 paragraphs
         expect(li.children[0].type).toBe("paragraph");
         expect(li.children[1].type).toBe("paragraph");
-      });
-      
-      test("List item with blank line then indented code block", () => {
+    });
+
+    test("List item with blank line then indented code block", () => {
         const input = `- item
         
             code line
@@ -112,9 +112,9 @@ describe("blockPhase - Basic Functionality", () => {
         expect(li.children.length).toBe(2); // a paragraph and a code block
         expect(li.children[0].type).toBe("paragraph");
         expect(li.children[1].type).toBe("code_block");
-      });
+    });
 
-      test("Nested list items with blank lines in sub-list", () => {
+    test("Nested list items with blank lines in sub-list", () => {
         const input = `- Outer
           - Inner line one
       
@@ -134,7 +134,7 @@ describe("blockPhase - Basic Functionality", () => {
         const innerLi = innerList.children[0];
         expect(innerLi.children.length).toBe(2);
         expect(innerLi.children[0].type).toBe("paragraph");
-      });
+    });
 });
 
 
@@ -834,59 +834,9 @@ describe("isThematicBreak", () => {
     });
 });
 
-describe("getListMarker", () => {
-    test("returns bullet list marker info for lines starting with * or + or -", () => {
-        const bullet = getListMarker("* Item text");
-        expect(bullet).toEqual({ ordered: false, start: 1, bulletChar: "*" });
-        const plus = getListMarker("+ Another");
-        expect(plus).toEqual({ ordered: false, start: 1, bulletChar: "+" });
-        const dash = getListMarker("- Third");
-        expect(dash).toEqual({ ordered: false, start: 1, bulletChar: "-" });
-    });
 
-    test("returns ordered list marker info for lines starting with digits + . or )", () => {
-        const ordered1 = getListMarker("1. Hello");
-        const ordered2 = getListMarker("12) World");
-        expect(ordered1).toEqual({ ordered: true, start: 1 });
-        expect(ordered2).toEqual({ ordered: true, start: 12 });
-    });
 
-    test("handles up to 9 digits for ordered list marker", () => {
-        const bigMarker = getListMarker("123456789. Large index");
-        expect(bigMarker).toEqual({ ordered: true, start: 123456789 });
-    });
 
-    test("returns null for lines that don't match any list marker pattern", () => {
-        expect(getListMarker("No marker")).toBeNull();
-        expect(getListMarker("abc")).toBeNull();
-        expect(getListMarker("1234567890. Too large index?")).toEqual(null);
-    });
-});
-
-describe("tryHtmlBlockOpen", () => {
-    test("recognizes simple HTML comment and returns content", () => {
-        const res = tryHtmlBlockOpen("<!-- comment -->");
-        expect(res).not.toBeNull();
-        expect(res?.content).toBe("<!-- comment -->");
-    });
-
-    test("recognizes tags", () => {
-        const res = tryHtmlBlockOpen("<div>Hello</div>");
-        expect(res).not.toBeNull();
-        expect(res?.content).toBe("<div>Hello</div>");
-    });
-
-    test("recognizes processing instructions", () => {
-        const res = tryHtmlBlockOpen("<?xml version='1.0'?>");
-        expect(res).not.toBeNull();
-        expect(res?.content).toBe("<?xml version='1.0'?>");
-    });
-
-    test("returns null for lines that are not recognized as HTML blocks", () => {
-        const res = tryHtmlBlockOpen("Plain text");
-        expect(res).toBeNull();
-    });
-});
 
 describe("normalizeRefLabel", () => {
     test("should convert label to lower case, trim spaces, and collapse whitespace", () => {

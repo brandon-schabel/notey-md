@@ -18,6 +18,7 @@ import {
   normalizeRefLabel,
   appendContentToCode,
   tryHtmlBlockOpenStrict,
+  parseListLine, 
 } from "./parser-helpers";
 
 export function blockPhase(markdown: string): DocumentNode {
@@ -32,12 +33,12 @@ export function blockPhase(markdown: string): DocumentNode {
   };
 
   let stack: MarkdownNode[] = [doc];
-  let lastLineWasBlank = false;
 
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
     const top = stack[stack.length - 1];
 
+    // If we are inside a fenced code block, check for fence closing
     if (top.type === "code_block" && top.fence) {
       const trimmed = line.trim();
       const fence = top.fence;
@@ -53,11 +54,13 @@ export function blockPhase(markdown: string): DocumentNode {
       }
     }
 
-    let currentIdx = 1;
+    // Let containers (blockquote, lists, etc) try to consume line
     let offset = 0;
+    let currentIdx = 1;
     while (currentIdx < stack.length) {
       const container = stack[currentIdx];
       if (!canContainLine(container, line, offset)) {
+        // close anything deeper
         while (stack.length > currentIdx) {
           closeBlock(stack, doc.refDefinitions);
         }
@@ -67,41 +70,38 @@ export function blockPhase(markdown: string): DocumentNode {
       currentIdx++;
     }
 
+    // Attempt to open new blocks (blockquotes, lists, headings, etc)
     let opened = tryOpenNewContainers(stack, line, offset);
 
+    // If no new block was opened and the line isn't blank, treat as paragraph text
     if (!opened) {
       if (!line.trim()) {
         handleBlankLine(stack, doc.refDefinitions);
-        lastLineWasBlank = true;
         continue;
       }
       let sTop = stack[stack.length - 1];
+      // create a new paragraph if top is not paragraph or code_block
       if (sTop.type !== "paragraph" && sTop.type !== "code_block") {
         const p: ParagraphNode = { type: "paragraph", children: [] };
         addChild(sTop, p);
         stack.push(p);
       }
-      let finalOffset = 0;
-      for (let idx = 1; idx < stack.length; idx++) {
-        finalOffset = consumeContainerMarkers(stack[idx], line, finalOffset);
-      }
+      // Now append the text into that paragraph
       let para = stack[stack.length - 1] as ParagraphNode;
       let currentText = getParagraphContent(para);
       setParagraphContent(
         para,
-        currentText ? currentText + "\n" + line.slice(finalOffset) : line.slice(finalOffset),
+        currentText ? currentText + "\n" + line.slice(offset) : line.slice(offset),
       );
-    }
-
-    if (line.trim()) {
-      lastLineWasBlank = false;
     }
   }
 
+  // Close any remaining open blocks
   while (stack.length > 0) {
     closeBlock(stack, doc.refDefinitions);
   }
 
+  // finalize lists (tight vs. loose) etc.
   finalizeLists(doc);
   return doc;
 }
@@ -113,8 +113,9 @@ export function canContainLine(container: MarkdownNode, line: string, offset: nu
     return false;
   }
   if (container.type === "list_item") {
-    const listMarker = getListMarker(line.slice(offset));
-    if (listMarker) {
+    // If line matches a new bullet, can't stay in this item
+    const listLine = parseListLine(line.slice(offset));
+    if (listLine) {
       return false;
     }
     // Indented code block within list item
@@ -147,10 +148,10 @@ export function consumeContainerMarkers(container: MarkdownNode, line: string, o
 }
 
 export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset: number): boolean {
-  let currentOffset = offset;
-  let currentLine = line.slice(currentOffset);
+  let currentLine = line.slice(offset);
   const container = stack[stack.length - 1];
 
+  // Setext heading under paragraph
   if (container.type === "paragraph") {
     const setext = currentLine.match(/^[ ]{0,3}(=+|-+)\s*$/);
     if (setext) {
@@ -171,6 +172,7 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
     }
   }
 
+  // Thematic break
   if (isThematicBreak(currentLine)) {
     closeParagraphIfOpen(stack);
     const hr: ThematicBreakNode = { type: "thematic_break" };
@@ -178,6 +180,7 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
     return true;
   }
 
+  // ATX heading ( # Heading )
   const atx = parseAtxHeading(currentLine);
   if (atx) {
     closeParagraphIfOpen(stack);
@@ -185,6 +188,7 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
     return true;
   }
 
+  // Fenced code block
   if (isFencedCodeStart(currentLine.trim())) {
     closeParagraphIfOpen(stack);
     const match = currentLine.trim().match(/^(`{3,}|~{3,})(.*)$/);
@@ -203,7 +207,7 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
     }
   }
 
-  // Blockquote (before list)
+  // Blockquote
   const bqMatch = currentLine.match(/^[ ]{0,3}>( ?)?/);
   if (bqMatch) {
     let parent = stack[stack.length - 1];
@@ -214,53 +218,66 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
       stack.push(bq);
       parent = bq;
     }
-    currentOffset += bqMatch[0].length;
     return true;
   }
 
-  const listMatch = getListMarker(currentLine);
-  if (listMatch) {
+  // List line (bullet or ordered)
+  const listLineInfo = parseListLine(currentLine);
+  if (listLineInfo) {
+    // Close any open paragraph
     closeParagraphIfOpen(stack);
+
+    // Close previous list item if it exists
     while (stack.length && stack[stack.length - 1].type === "list_item") {
       closeBlock(stack, null);
     }
-    const wantOrdered = listMatch.ordered;
-    const wantStart = listMatch.start;
-    let parentList: ListNode | null = null;
-    const top = stack[stack.length - 1];
+
+    // Create or reuse list
+    let top = stack[stack.length - 1];
+    let existingList: ListNode | null = null;
     if (top.type === "list") {
-      if (top.ordered === wantOrdered) {
-        parentList = top;
+      // check if the newly found bullet type matches the existing list type
+      if (top.ordered === listLineInfo.ordered) {
+        existingList = top;
       } else {
-        while (stack.length && stack[stack.length - 1].type !== "document") {
-          const t = stack[stack.length - 1];
-          if (t.type === "list") {
-            closeBlock(stack, null);
-            break;
-          } else {
-            closeBlock(stack, null);
-          }
+        // different list type, so close the old one
+        while (stack.length && stack[stack.length - 1].type === "list") {
+          closeBlock(stack, null);
         }
       }
     }
-    if (!parentList) {
+
+    if (!existingList) {
       const newList: ListNode = {
         type: "list",
-        ordered: wantOrdered,
-        start: wantOrdered ? wantStart : null,
+        ordered: listLineInfo.ordered,
+        start: listLineInfo.ordered ? listLineInfo.start : null,
         tight: true,
         children: [],
       };
       addChild(stack[stack.length - 1], newList);
       stack.push(newList);
-      parentList = newList;
+      existingList = newList;
     }
+
+    // Add a new list item
     const li: ListItemNode = { type: "list_item", children: [] };
-    addChild(parentList, li);
+    addChild(existingList, li);
     stack.push(li);
+
+    // If there's leftover text on the bullet line, store it in a paragraph
+    const leftover = listLineInfo.content.trim();
+    if (leftover) {
+      const p: ParagraphNode = { type: "paragraph", children: [] };
+      setParagraphContent(p, leftover);
+      addChild(li, p);
+      stack.push(p);
+    }
+
     return true;
   }
 
+  // Indented code block (4+ spaces)
   const indentMatch = currentLine.match(/^ {4,}(.*)$/);
   if (indentMatch) {
     closeParagraphIfOpen(stack);
@@ -280,6 +297,7 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
     return true;
   }
 
+  // Strict HTML block
   const maybeHtmlBlock = tryHtmlBlockOpenStrict(currentLine.trim());
   if (maybeHtmlBlock) {
     closeParagraphIfOpen(stack);
@@ -288,6 +306,7 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
     return true;
   }
 
+  // No new container opened
   return false;
 }
 
@@ -365,45 +384,6 @@ export function isThematicBreak(line: string): boolean {
   return false;
 }
 
-export function getListMarker(line: string): {
-  ordered: boolean;
-  start: number;
-  bulletChar?: string;
-} | null {
-  let bulletRe = /^[ ]{0,3}([*+\-])(\s+)(.*)$/;
-  let m = line.match(bulletRe);
-  if (m) {
-    return { ordered: false, start: 1, bulletChar: m[1] };
-  }
-  let ordRe = /^[ ]{0,3}(\d{1,9})([.)])(\s+)(.*)$/;
-  let m2 = line.match(ordRe);
-  if (m2) {
-    let n = parseInt(m2[1], 10);
-    if (isNaN(n)) n = 1;
-    return { ordered: true, start: n };
-  }
-  return null;
-}
-
-export function tryHtmlBlockOpen(line: string): { content: string } | null {
-  if (/^<!--/.test(line)) {
-    return { content: line };
-  }
-  if (/^<\?/.test(line)) {
-    return { content: line };
-  }
-  if (/^<![A-Z]/i.test(line)) {
-    return { content: line };
-  }
-  if (/^<!\[CDATA\[/.test(line)) {
-    return { content: line };
-  }
-  if (/^<[/]?[a-zA-Z][\s>/]/.test(line)) {
-    return { content: line };
-  }
-  return null;
-}
-
 export function addChild(parent: MarkdownNode, child: MarkdownNode) {
   if (parent.type === "document") {
     parent.children.push(child);
@@ -437,6 +417,7 @@ export function addChild(parent: MarkdownNode, child: MarkdownNode) {
     return;
   }
   if ("children" in parent && Array.isArray(parent.children)) {
+    // @ts-ignore
     parent.children.push(child);
   }
 }
@@ -489,6 +470,5 @@ function finalizeLists(doc: DocumentNode) {
       }
     }
   };
-
   visit(doc);
 }
