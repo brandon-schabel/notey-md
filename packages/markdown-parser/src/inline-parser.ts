@@ -1,6 +1,7 @@
-import type { MarkdownNode, DocumentNode, RefDefinition, TextNode } from "./ast";
+import type { MarkdownNode, DocumentNode, RefDefinition, TextNode, ImageNode, LinkNode, BlockquoteNode, EmphasisNode, HeadingNode, ListItemNode, ListNode, ParagraphNode, StrongNode } from "./ast";
 import { logDebug } from "./debug";
 import { isDebugMode } from "./debug";
+import { parseInlinesWithDelimiterStack } from "./inline-parser/parse-inlines-with-delimiter-stack";
 import { getParagraphContent, tryHtmlBlockOpenStrict } from "./parser-helpers";
 
 export interface InlineToken {
@@ -174,170 +175,6 @@ export function lexInline(line: string): InlineToken[] {
   return tokens
 }
 
-export function parseInlinesWithDelimiterStack(tokens: InlineToken[], refMap: Map<string, RefDefinition>): MarkdownNode[] {
-  const nodes: MarkdownNode[] = []
-  const delims: {
-    idx: number
-    length: number
-    char: string
-    canOpen: boolean
-    canClose: boolean
-  }[] = []
-
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i]
-    switch (t.type) {
-      case "code_span":
-        nodes.push({ type: "code_span", code: t.content })
-        break
-      case "raw_html":
-        nodes.push({ type: "raw_html", content: t.content })
-        break
-      case "autolink":
-        {
-          const c = t.content
-          const isEmail = /^[^\s@]+@[^\s@]+$/.test(c)
-          let url = c
-          if (isEmail) url = "mailto:" + url
-          nodes.push({ type: "link", url, children: [{ type: "text", value: t.content }] })
-        }
-        break
-      case "softbreak":
-        nodes.push({ type: "text", value: " " })
-        break
-      case "br":
-        nodes.push({ type: "linebreak" })
-        break
-      case "delim": {
-        const runChar = t.content[0]
-        const runLen = t.content.length
-        const lastChar = i > 0 ? tokens[i - 1].content.slice(-1) : ""
-        const nextChar = i < tokens.length - 1 ? tokens[i + 1].content.slice(0, 1) : ""
-        const canOpen = isLeftFlankingDelimiterRun(runChar, lastChar, nextChar, runLen)
-        const canClose = isRightFlankingDelimiterRun(runChar, lastChar, nextChar, runLen)
-        const textNode: TextNode = { type: "text", value: t.content }
-        const nodeIndex = nodes.length
-        nodes.push(textNode)
-        delims.push({ idx: nodeIndex, length: runLen, char: runChar, canOpen, canClose })
-        break
-      }
-      default:
-        nodes.push({ type: "text", value: t.content })
-        break
-    }
-  }
-  processEmphasis(nodes, delims)
-  return nodes
-}
-
-export function processEmphasis(nodes: MarkdownNode[], delims: any[]) {
-  delims.sort((a, b) => a.idx - b.idx)
-  const used = new Set<number>()
-  for (let closerIdx = delims.length - 1; closerIdx >= 0; closerIdx--) {
-    if (used.has(closerIdx)) continue
-    const closer = delims[closerIdx]
-    if (!closer.canClose) continue
-    for (let openerIdx = closerIdx - 1; openerIdx >= 0; openerIdx--) {
-      if (used.has(openerIdx)) continue
-      const opener = delims[openerIdx]
-      if (!opener.canOpen) continue
-      if (opener.char !== closer.char) continue
-      const matchedCount = Math.min(opener.length, closer.length)
-      const isStrong = matchedCount >= 2
-      used.add(openerIdx)
-      used.add(closerIdx)
-      const openerNode = nodes[opener.idx] as TextNode
-      const closerNode = nodes[closer.idx] as TextNode
-      const openerText = openerNode.value
-      const closerText = closerNode.value
-      const useCount = isStrong ? 2 : 1
-      if (openerText.length <= useCount) {
-        openerNode.value = ""
-      } else {
-        openerNode.value = openerText.slice(0, openerText.length - useCount)
-      }
-      if (closerText.length <= useCount) {
-        closerNode.value = ""
-      } else {
-        closerNode.value = closerText.slice(useCount)
-      }
-      let start = opener.idx + 1
-      let end = closer.idx - 1
-      if (openerNode.value === "") {
-        nodes.splice(opener.idx, 1)
-        adjustDelimiterIndexes(delims, opener.idx)
-        if (closer.idx > opener.idx) closer.idx--
-        if (end >= opener.idx) end--
-        if (start > opener.idx) start--
-      }
-      if (closerNode.value === "") {
-        nodes.splice(closer.idx, 1)
-        adjustDelimiterIndexes(delims, closer.idx)
-        if (end >= closer.idx) end--
-      }
-      if (start < 0) start = 0
-      if (end < start) continue
-      if (end >= nodes.length) end = nodes.length - 1
-      const content = nodes.slice(start, end + 1)
-      const emph: MarkdownNode = isStrong
-        ? { type: "strong", children: content }
-        : { type: "emphasis", children: content }
-      nodes.splice(start, content.length, emph)
-      for (let di = 0; di < delims.length; di++) {
-        const d = delims[di]
-        if (d.idx > start + content.length - 1) {
-          d.idx -= content.length - 1
-        } else if (d.idx >= start) {
-          used.add(di)
-        }
-      }
-      break
-    }
-  }
-}
-
-export function adjustDelimiterIndexes(delims: any[], removedIndex: number) {
-  for (let i = 0; i < delims.length; i++) {
-    if (delims[i].idx > removedIndex) {
-      delims[i].idx--
-    }
-  }
-}
-
-export function isLeftFlankingDelimiterRun(
-  delimChar: string,
-  lastChar: string,
-  nextChar: string,
-  runLen: number,
-) {
-  if (delimChar === "*") return !!nextChar && !/\s/.test(nextChar)
-  else if (delimChar === "_") {
-    if (nextChar === "_") return false
-    if (!nextChar) return false
-    if (/\s/.test(nextChar)) return false
-    if (/[a-zA-Z0-9]/.test(nextChar)) {
-      if (/[a-zA-Z0-9]/.test(lastChar || "")) return false
-    }
-    return true
-  }
-  return false
-}
-
-export function isRightFlankingDelimiterRun(
-  delimChar: string,
-  lastChar: string,
-  nextChar: string,
-  runLen: number,
-) {
-  if (delimChar === "*") return !!lastChar && !/\s/.test(lastChar)
-  if (delimChar === "_") {
-    if (!lastChar) return false
-    if (/[a-zA-Z0-9]/.test(lastChar) && nextChar && /[a-zA-Z0-9]/.test(nextChar)) return false
-    return true
-  }
-  return false
-}
-
 export function matchAutolink(str: string, start: number) {
   const sub = str.slice(start)
   const re = /^<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]+|[^\s<>@]+@[^\s<>]+)>/
@@ -354,6 +191,224 @@ export function matchRawInlineHtml(str: string, start: number) {
   return { content: m[0], length: m[0].length }
 }
 
+
+
+function nodeHasChildren(node: MarkdownNode): node is (
+  | LinkNode
+  | EmphasisNode
+  | StrongNode
+  | ParagraphNode
+  | HeadingNode
+  | BlockquoteNode
+  | ListNode
+  | ListItemNode
+) {
+  return "children" in node;
+}
+
 export function linkResolver(inlineNodes: MarkdownNode[], refMap: Map<string, RefDefinition>): MarkdownNode[] {
-  return inlineNodes
+  // Recurse into children of emphasis/strong/link/etc. to handle nested bracket parsing
+  for (let i = 0; i < inlineNodes.length; i++) {
+    const node = inlineNodes[i];
+    // Only nodes that do have a children array
+    if (nodeHasChildren(node)) {
+      node.children = linkResolver(node.children, refMap);
+    }
+  }
+
+  // Then transform bracket tokens ([, ], etc.) into LinkNodes or ImageNodes
+  return transformLinksAndImages(inlineNodes, refMap);
+}
+
+function transformLinksAndImages(nodes: MarkdownNode[], refMap: Map<string, RefDefinition>): MarkdownNode[] {
+  const result: MarkdownNode[] = [];
+  let i = 0;
+
+  while (i < nodes.length) {
+    const current = nodes[i];
+    // Try parsing as image if you see "!" followed by "["
+    if (isTextNode(current, "!") && isTextNode(nodes[i + 1], "[")) {
+      const parsedImg = tryParseLinkOrImage(nodes, refMap, i, true /* isImage */);
+      if (parsedImg) {
+        const { _nextIndex, ...finalNode } = parsedImg;
+        result.push(finalNode);         // finalNode is now a proper ImageNode
+        i = _nextIndex;
+        continue;
+      }
+    }
+    // Try parsing as link if you see "["
+    if (isTextNode(current, "[")) {
+      const parsedLink = tryParseLinkOrImage(nodes, refMap, i, false /* isImage */);
+      if (parsedLink) {
+        const { _nextIndex, ...finalNode } = parsedLink;
+        result.push(finalNode);         // finalNode is a proper LinkNode
+        i = _nextIndex;
+        continue;
+      }
+    }
+    // Otherwise, just push it as-is
+    result.push(current);
+    i++;
+  }
+  return result;
+}
+
+
+// A helper union type for a “link or image + _nextIndex”.
+type LinkOrImageWithIndex =
+  | (LinkNode & { _nextIndex: number })
+  | (ImageNode & { _nextIndex: number });
+
+function tryParseLinkOrImage(
+  nodes: MarkdownNode[],
+  refMap: Map<string, RefDefinition>,
+  startIndex: number,
+  isImage: boolean
+): LinkOrImageWithIndex | null {
+  // For an image, we expect nodes at startIndex = "!", startIndex+1 = "["
+  // For a link,  we expect nodes at startIndex = "["
+  const bracketOpenIndex = isImage ? startIndex + 1 : startIndex;
+
+  // Find the matching "]"
+  let bracketCloseIndex = -1;
+  for (let j = bracketOpenIndex + 1; j < nodes.length; j++) {
+    if (isTextNode(nodes[j], "]")) {
+      bracketCloseIndex = j;
+      break;
+    }
+  }
+  if (bracketCloseIndex === -1) return null;
+
+  // The text inside the [...], used as either link text or image alt text
+  const labelNodes = nodes.slice(bracketOpenIndex + 1, bracketCloseIndex);
+  const linkText = getNodeText(labelNodes);
+
+  // Check the token after the "]"
+  const afterBracketClose = bracketCloseIndex + 1;
+  const nextNode = nodes[afterBracketClose] ?? null;
+
+  // Reference link: [text][label] or [text][] or [ref]
+  if (isTextNode(nextNode, "[")) {
+    // find the closing "]"
+    let bracket2Close = -1;
+    for (let k = afterBracketClose + 1; k < nodes.length; k++) {
+      if (isTextNode(nodes[k], "]")) {
+        bracket2Close = k;
+        break;
+      }
+    }
+    if (bracket2Close === -1) return null;
+
+    // The text inside the second brackets
+    const refLabelNodes = nodes.slice(afterBracketClose + 1, bracket2Close);
+    let refLabel = getNodeText(refLabelNodes).toLowerCase();
+    if (!refLabel) {
+      // collapsed reference => use linkText as the label
+      refLabel = linkText.toLowerCase();
+    }
+
+    const def = refMap.get(refLabel);
+    if (!def) return null; // not a known reference
+
+    if (isImage) {
+      // Construct an ImageNode
+      return {
+        type: "image",
+        url: def.url,
+        title: def.title ?? "",
+        alt: linkText,
+        _nextIndex: bracket2Close + 1
+      };
+    } else {
+      // Construct a LinkNode
+      return {
+        type: "link",
+        url: def.url,
+        title: def.title ?? "",
+        children: [{ type: "text", value: linkText }],
+        _nextIndex: bracket2Close + 1
+      };
+    }
+  }
+
+  //  Inline link: [text](url "title")
+  if (isTextNode(nextNode, "(")) {
+    // find closing ")"
+    let parenCloseIndex = -1;
+    for (let k = afterBracketClose + 1; k < nodes.length; k++) {
+      if (isTextNode(nodes[k], ")")) {
+        parenCloseIndex = k;
+        break;
+      }
+    }
+    if (parenCloseIndex === -1) return null;
+
+    // parse the content inside ( ... ) to extract url + title
+    const insideParenNodes = nodes.slice(afterBracketClose + 1, parenCloseIndex);
+    const { url, title } = parseUrlAndTitle(getNodeText(insideParenNodes));
+
+    if (isImage) {
+      // Image node
+      return {
+        type: "image",
+        url,
+        title,
+        alt: linkText,
+        _nextIndex: parenCloseIndex + 1
+      };
+    } else {
+      // Link node
+      return {
+        type: "link",
+        url,
+        title,
+        children: [{ type: "text", value: linkText }],
+        _nextIndex: parenCloseIndex + 1
+      };
+    }
+  }
+
+  return null; // no match
+}
+
+// ---------------------------------------------------
+// 5) Helper functions
+// ---------------------------------------------------
+function getNodeText(nodes: MarkdownNode[]): string {
+  return nodes
+    .filter(n => n.type === "text")
+    .map(n => (n as TextNode).value)
+    .join("");
+}
+
+function isTextNode(node: MarkdownNode | null, exact: string): boolean {
+  return !!node && node.type === "text" && (node as TextNode).value === exact;
+}
+
+/**
+ * Minimal parsing for something like `url "Title"` or `<url> "Title"`.
+ * Adjust as needed for your use-cases.
+ */
+function parseUrlAndTitle(raw: string): { url: string; title: string } {
+  let trimmed = raw.trim();
+
+  // If URL is wrapped like <...>, remove outer < >
+  if (trimmed.startsWith("<") && trimmed.includes(">")) {
+    const endIdx = trimmed.lastIndexOf(">");
+    const inside = trimmed.slice(1, endIdx).trim();
+    const remainder = trimmed.slice(endIdx + 1).trim();
+    trimmed = inside + (remainder ? " " + remainder : "");
+  }
+
+  let url = trimmed;
+  let title = "";
+  // Look for “url \"Title\"” or “url 'Title'”
+  const re = /^(\S+)\s+["'](.*)["']$/;
+  const m = trimmed.match(re);
+  if (m) {
+    url = m[1];
+    title = m[2];
+  }
+
+  return { url, title };
 }

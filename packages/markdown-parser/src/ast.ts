@@ -63,3 +63,17 @@ export type MarkdownNode =
   | ImageNode
   | LineBreakNode
   | RawHtmlNode
+
+// Add InlineToken type
+export type InlineToken =
+    | { type: "text"; content: string }
+    | { type: "code_span"; content: string }
+    | { type: "raw_html"; content: string }
+    | { type: "autolink"; content: string }
+    | { type: "softbreak"; content: string }
+    | { type: "br"; content: string }
+    | { type: "delim"; content: string }
+    | { type: "lbracket"; content: string }
+    | { type: "rbracket"; content: string }
+    | { type: "lparen"; content: string }
+    | { type: "rparen"; content: string };

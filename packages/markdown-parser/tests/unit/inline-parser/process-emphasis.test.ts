@@ -1,9 +1,9 @@
 import type { MarkdownNode } from "@/ast";
-import { processEmphasis } from "@/inline-parser";
+import { processEmphasis } from "@/inline-parser/parse-inlines-with-delimiter-stack";
 import { test, describe, expect } from "bun:test";
 
 describe("processEmphasis", () => {
-    test("converts single pair of * delimiters into emphasis node", () => {
+    test("handles single asterisk emphasis", () => {
         const nodes: MarkdownNode[] = [
             { type: "text", value: "Hello " },
             { type: "text", value: "*" },
@@ -11,37 +11,81 @@ describe("processEmphasis", () => {
             { type: "text", value: "*" },
         ];
         const delims = [
-            { idx: 1, length: 1, char: "*", canOpen: true, canClose: false },
-            { idx: 3, length: 1, char: "*", canOpen: false, canClose: true },
+            { idx: 1, length: 1, char: "*", canOpen: true, canClose: true },
+            { idx: 3, length: 1, char: "*", canOpen: true, canClose: true },
         ];
         processEmphasis(nodes, delims);
-        expect(nodes.length).toBe(2);
-        expect(nodes[0]).toEqual({ type: "text", value: "Hello " });
-        expect(nodes[1].type).toBe("emphasis");
-        if (nodes[1].type === "emphasis") {
-            expect(nodes[1].children).toEqual([{ type: "text", value: "world" }]);
-        }
+        expect(nodes).toEqual([
+            { type: "text", value: "Hello " },
+            { type: "text", value: "" },
+            { type: "emphasis", children: [{ type: "text", value: "world" }] },
+            { type: "text", value: "" },
+        ]);
     });
 
-    test("converts ** into strong node", () => {
+    test("handles double asterisk strong emphasis", () => {
         const nodes: MarkdownNode[] = [
+            { type: "text", value: "Hello " },
             { type: "text", value: "**" },
-            { type: "text", value: "bold" },
+            { type: "text", value: "world" },
             { type: "text", value: "**" },
         ];
         const delims = [
-            { idx: 0, length: 2, char: "*", canOpen: true, canClose: false },
-            { idx: 2, length: 2, char: "*", canOpen: false, canClose: true },
+            { idx: 1, length: 2, char: "*", canOpen: true, canClose: true },
+            { idx: 3, length: 2, char: "*", canOpen: true, canClose: true },
         ];
         processEmphasis(nodes, delims);
-        expect(nodes.length).toBe(1);
-        expect(nodes[0].type).toBe("strong");
+        expect(nodes).toEqual([
+            { type: "text", value: "Hello " },
+            { type: "text", value: "" },
+            { type: "strong", children: [{ type: "text", value: "world" }] },
+            { type: "text", value: "" },
+        ]);
     });
 
-    test("does not create emphasis node if canOpen/canClose flags do not match", () => {
+    test("handles triple asterisk strong and emphasis", () => {
+        const nodes: MarkdownNode[] = [
+            { type: "text", value: "***" },
+            { type: "text", value: "hello" },
+            { type: "text", value: "***" },
+        ];
+        const delims = [
+            { idx: 0, length: 3, char: "*", canOpen: true, canClose: true },
+            { idx: 2, length: 3, char: "*", canOpen: true, canClose: true },
+        ];
+        processEmphasis(nodes, delims);
+        expect(nodes).toEqual([
+            { type: "text", value: "*" },
+            {
+                type: "strong",
+                children: [{ type: "emphasis", children: [{ type: "text", value: "hello" }] }],
+            },
+            { type: "text", value: "*" },
+        ]);
+    });
+
+    test("handles mismatched delimiters", () => {
         const nodes: MarkdownNode[] = [
             { type: "text", value: "*" },
-            { type: "text", value: "something" },
+            { type: "text", value: "hello" },
+            { type: "text", value: "_" },
+        ];
+        const delims = [
+            { idx: 0, length: 1, char: "*", canOpen: true, canClose: true },
+            { idx: 2, length: 1, char: "_", canOpen: true, canClose: true },
+        ];
+        processEmphasis(nodes, delims);
+        expect(nodes).toEqual([
+            { type: "text", value: "*" },
+            { type: "text", value: "hello" },
+            { type: "text", value: "_" },
+        ]);
+    });
+
+    test("handles delimiters that cannot open or close", () => {
+        const nodes: MarkdownNode[] = [
+            { type: "text", value: "*" },
+            { type: "text", value: "hello" },
             { type: "text", value: "*" },
         ];
         const delims = [
@@ -49,57 +93,129 @@ describe("processEmphasis", () => {
             { idx: 2, length: 1, char: "*", canOpen: false, canClose: false },
         ];
         processEmphasis(nodes, delims);
-        expect(nodes.length).toBe(3);
         expect(nodes).toEqual([
             { type: "text", value: "*" },
-            { type: "text", value: "something" },
+            { type: "text", value: "hello" },
             { type: "text", value: "*" },
         ]);
     });
 
-    test("handles nested emphasis with multiple pairs of delimiters", () => {
-        const nodes: MarkdownNode[] = [
-            { type: "text", value: "Hello " },
-            { type: "text", value: "*" },
-            { type: "text", value: "world" },
-            { type: "text", value: "*" },
-            { type: "text", value: " and " },
-            { type: "text", value: "**" },
-            { type: "text", value: "beyond" },
-            { type: "text", value: "**" },
-        ];
-        const delims = [
-            { idx: 1, length: 1, char: "*", canOpen: true, canClose: false },
-            { idx: 3, length: 1, char: "*", canOpen: false, canClose: true },
-            { idx: 5, length: 2, char: "*", canOpen: true, canClose: false },
-            { idx: 7, length: 2, char: "*", canOpen: false, canClose: true },
-        ];
-        processEmphasis(nodes, delims);
-        expect(nodes.length).toBe(4);
-        expect(nodes[0]).toEqual({ type: "text", value: "Hello " });
-        expect(nodes[1].type).toBe("emphasis");
-        if (nodes[1].type === "emphasis") {
-            expect(nodes[1].children).toEqual([{ type: "text", value: "world" }]);
-        }
-        expect(nodes[2]).toEqual({ type: "text", value: " and " });
-        expect(nodes[3].type).toBe("strong");
-        if (nodes[3].type === "strong") {
-            expect(nodes[3].children).toEqual([{ type: "text", value: "beyond" }]);
-        }
-    });
-
-    test("ignores leftover or unpaired delimiters", () => {
+    test("handles nested emphasis", () => {
         const nodes: MarkdownNode[] = [
             { type: "text", value: "*" },
-            { type: "text", value: "Hello" },
+            { type: "text", value: "hello *world* again" },
+            { type: "text", value: "*" },
         ];
         const delims = [
-            { idx: 0, length: 1, char: "*", canOpen: true, canClose: false },
+            { idx: 0, length: 1, char: "*", canOpen: true, canClose: true },
+            { idx: 2, length: 1, char: "*", canOpen: true, canClose: true },
         ];
         processEmphasis(nodes, delims);
         expect(nodes).toEqual([
+            { type: "text", value: "" },
+            {
+                type: "emphasis",
+                children: [{ type: "text", value: "hello *world* again" }],
+            },
+            { type: "text", value: "" },
+        ]);
+    });
+
+    test("handles emphasis with different lengths", () => {
+        const nodes: MarkdownNode[] = [
+            { type: "text", value: "***" },
+            { type: "text", value: "hello" },
             { type: "text", value: "*" },
-            { type: "text", value: "Hello" },
+        ];
+        const delims = [
+            { idx: 0, length: 3, char: "*", canOpen: true, canClose: true },
+            { idx: 2, length: 1, char: "*", canOpen: true, canClose: true },
+        ];
+        processEmphasis(nodes, delims);
+        expect(nodes).toEqual([
+            { type: "text", value: "**" },
+            { type: "emphasis", children: [{ type: "text", value: "hello" }] },
+            { type: "text", value: "" },
+        ]);
+    });
+
+    test("handles empty emphasis", () => {
+        const nodes: MarkdownNode[] = [
+            { type: "text", value: "*" },
+            { type: "text", value: "*" },
+        ];
+        const delims = [
+            { idx: 0, length: 1, char: "*", canOpen: true, canClose: true },
+            { idx: 1, length: 1, char: "*", canOpen: true, canClose: true },
+        ];
+        processEmphasis(nodes, delims);
+        expect(nodes).toEqual([
+            { type: "text", value: "" },
+            { type: "text", value: "" },
+        ]);
+    });
+
+    test("handles multiple emphasis blocks", () => {
+        const nodes: MarkdownNode[] = [
+            { type: "text", value: "*hello* *world*" },
+        ];
+        const delims = [
+            { idx: 0, length: 1, char: "*", canOpen: true, canClose: true },
+        ];
+        processEmphasis(nodes, delims);
+        expect(nodes).toEqual([
+            { type: "text", value: "*hello* *world*" },
+        ]);
+    });
+
+    test("handles emphasis with closer before opener", () => {
+        const nodes: MarkdownNode[] = [
+            { type: "text", value: "world*" },
+            { type: "text", value: "*hello" },
+        ];
+        const delims = [
+            { idx: 0, length: 1, char: "*", canOpen: true, canClose: true },
+            { idx: 1, length: 1, char: "*", canOpen: true, canClose: true },
+        ];
+        processEmphasis(nodes, delims);
+        expect(nodes).toEqual([
+            { type: "text", value: "world*" },
+            { type: "text", value: "*hello" },
+        ]);
+    });
+
+    test("handles complex nested and overlapping emphasis", () => {
+        const nodes: MarkdownNode[] = [
+            { type: "text", value: "***a**b*" },
+        ];
+        const delims = [
+            { idx: 0, length: 3, char: "*", canOpen: true, canClose: true },
+        ];
+        processEmphasis(nodes, delims);
+        expect(nodes).toEqual([
+            { type: "text", value: "***a**b*" },
+        ]);
+    });
+
+    test("handles emphasis with empty text nodes", () => {
+        const nodes: MarkdownNode[] = [
+            { type: "text", value: "" },
+            { type: "text", value: "*" },
+            { type: "text", value: "" },
+            { type: "text", value: "*" },
+            { type: "text", value: "" }
+        ];
+        const delims = [
+            { idx: 1, length: 1, char: "*", canOpen: true, canClose: true },
+            { idx: 3, length: 1, char: "*", canOpen: true, canClose: true },
+        ];
+        processEmphasis(nodes, delims);
+        expect(nodes).toEqual([
+            { type: "text", value: "" },
+            { type: "text", value: "" },
+            { type: "emphasis", children: [ { type: 'text', value: '' } ] },
+            { type: "text", value: "" },
+            { type: "text", value: "" }
         ]);
     });
 });
