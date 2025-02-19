@@ -62,3 +62,8 @@ export function captureSnapshot(stage: string, doc: DocumentNode) {
     });
     debugLogs = [];
 }
+
+
+export function getDebugLogs(): string[] {
+    return debugLogs;
+}

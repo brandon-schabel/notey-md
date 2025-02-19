@@ -17,10 +17,21 @@ export function normalizeRefLabel(str: string) {
 }
 
 export function parseRefDefLine(line: string): RefDefinition | null {
-  const re =
-    /^[ ]{0,3}\[([^\]]+)\]:\s*(?:<(.*?)>|(\S+))\s*(?:"([^"]*)"|'([^']*)'|\(([^)]*)\))?\s*$/;
+  // Updated regex to handle cases with no space before title
+  const re = /^[ ]{0,3}\[([^\]]*)\]:\s*(?:<(.*?)>|(\S+?))(?:\s*(?:"([^"]*)"|'([^']*)'|\(([^)]*)\)))?\s*$/;
   const m = line.match(re);
-  if (!m) return null;
+  if (!m) {
+    // Handle case where there's no space before title
+    const noSpaceRe = /^[ ]{0,3}\[([^\]]*)\]:\s*(?:<(.*?)>|(\S+))(?:"([^"]*)"|(?:'([^']*)')|\(([^)]*)\))\s*$/;
+    const mNoSpace = line.match(noSpaceRe);
+    if (!mNoSpace) return null;
+
+    const label = mNoSpace[1] || "";
+    const url = mNoSpace[2] || mNoSpace[3] || "";
+    const title = mNoSpace[4] || mNoSpace[5] || mNoSpace[6] || undefined;
+    return { label, url, title };
+  }
+
   const label = m[1] || "";
   const url = m[2] || m[3] || "";
   const title = m[4] || m[5] || m[6] || undefined;
@@ -43,12 +54,6 @@ export function tryHtmlBlockOpenStrict(line: string): { content: string } | null
   return null;
 }
 
-/**
- * Parses a line to see if it begins a list item:
- * - bullet: * + - with optional indentation
- * - ordered: [0-9]+ followed by '.' or ')'
- * Returns the leftover text plus bulletChar/delimiter if found
- */
 export function parseListLine(line: string): {
   ordered: boolean;
   start: number;
@@ -63,12 +68,10 @@ export function parseListLine(line: string): {
       ordered: false,
       start: 1,
       bulletChar: mBullet[1],
-      delimiter: undefined,
       content: mBullet[3] || "",
     };
   }
 
-  // includes both . and ) for delimiter
   const ordRe = /^[ ]{0,3}(\d{1,9})([.)])([ \t]+)(.*)$/;
   const mOrd = line.match(ordRe);
   if (mOrd) {
@@ -77,7 +80,6 @@ export function parseListLine(line: string): {
     return {
       ordered: true,
       start: n,
-      bulletChar: undefined,
       delimiter: mOrd[2] as "." | ")",
       content: mOrd[4] || "",
     };

@@ -33,11 +33,12 @@ export function blockPhase(markdown: string): DocumentNode {
   };
 
   let stack: MarkdownNode[] = [doc];
+  let previousLineWasBlank = false;
 
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
     if (isDebugMode()) {
-      logDebug(`Processing line ${i}: ${JSON.stringify(line)}`);
+      logDebug(`Line ${i}: "${line}", Stack: [${stack.map(n => n.type).join(", ")}]`);
     }
     const top = stack[stack.length - 1];
 
@@ -63,6 +64,18 @@ export function blockPhase(markdown: string): DocumentNode {
       containerIndex++;
     }
 
+    const trimmedLine = line.slice(offset);
+    const isBlank = !trimmedLine.trim();
+
+    if (previousLineWasBlank && !isBlank && !trimmedLine.match(/^ {1,3}/) && stack.length > 1) {
+      if (isDebugMode()) {
+        logDebug(`Unindented content after blank line, closing all containers: "${trimmedLine}"`);
+      }
+      while (stack.length > 1) {
+        closeBlock(stack, doc.refDefinitions);
+      }
+    }
+
     const opened = tryOpenNewContainers(stack, line, offset);
     if (!opened) {
       if (!line.trim()) {
@@ -82,6 +95,8 @@ export function blockPhase(markdown: string): DocumentNode {
         setParagraphContent(para, appended);
       }
     }
+
+    previousLineWasBlank = isBlank;
   }
 
   while (stack.length > 0) {
@@ -109,20 +124,23 @@ function maybeCloseFencedCodeBlock(stack: MarkdownNode[], line: string): boolean
 export function canContainLine(container: MarkdownNode, line: string, offset: number): boolean {
   if (container.type === "document") return true;
   if (container.type === "blockquote") {
-    if (/^[ ]{0,3}>/.test(line.slice(offset)) || !line.trim()) return true;
-    return false;
+    return /^[ ]{0,3}>/.test(line.slice(offset)) || !line.slice(offset).trim();
   }
   if (container.type === "list_item") {
-    const next = parseListLine(line.slice(offset));
-    if (next) return false; // new bullet => can't stay in this item
-    // we allow blank or text => lazy continuation
-    return true;
+    const trimmed = line.slice(offset);
+    const next = parseListLine(trimmed);
+    if (next) {
+      if (isDebugMode()) {
+        logDebug(`Rejecting line "${trimmed}" in list_item due to new list marker`);
+      }
+      return false;
+    }
+    return !!trimmed.match(/^ {1,}/) || !trimmed.trim();
   }
   if (container.type === "list") return true;
   if (container.type === "code_block") return true;
   if (container.type === "paragraph") {
-    if (line.trim()) return true;
-    return false;
+    return !!line.trim();
   }
   return false;
 }
@@ -131,7 +149,11 @@ export function consumeContainerMarkers(container: MarkdownNode, line: string, o
   if (container.type === "blockquote") {
     const match = line.slice(offset).match(/^[ ]{0,3}>( ?)?/);
     if (match) {
-      offset += match[0].length;
+      const newOffset = offset + match[0].length;
+      if (isDebugMode()) {
+        logDebug(`Consumed blockquote marker: "${match[0]}", new offset: ${newOffset}`);
+      }
+      offset = newOffset;
     }
   }
   return offset;
@@ -139,6 +161,9 @@ export function consumeContainerMarkers(container: MarkdownNode, line: string, o
 
 export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset: number): boolean {
   const trimmedLine = line.slice(offset);
+  if (isDebugMode()) {
+    logDebug(`Trying to open containers with line: "${trimmedLine}", Stack: [${stack.map(n => n.type).join(", ")}]`);
+  }
   const container = stack[stack.length - 1];
 
   // Setext heading under paragraph
@@ -207,6 +232,20 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
       addChild(stack[stack.length - 1], bq);
       stack.push(bq);
       parent = bq;
+      if (isDebugMode()) {
+        logDebug(`New blockquote opened`);
+      }
+    } else if (isDebugMode()) {
+      logDebug(`Continuing existing blockquote`);
+    }
+    const remaining = trimmedLine.slice(bqMatch[0].length);
+    if (remaining.match(/^[ ]{0,3}>( ?)?/)) {
+      const nestedBq: BlockquoteNode = { type: "blockquote", children: [] };
+      addChild(parent, nestedBq);
+      stack.push(nestedBq);
+      if (isDebugMode()) {
+        logDebug(`Nested blockquote opened`);
+      }
     }
     return true;
   }
@@ -216,27 +255,21 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
   if (lineInfo) {
     closeParagraphIfOpen(stack);
 
-    // close any open list_item
     while (stack.length && stack[stack.length - 1].type === "list_item") {
       closeBlock(stack, null);
     }
 
-    let listNode: ListNode | null = null;
     const topNode = stack[stack.length - 1];
-    if (topNode.type === "list") {
-      const candidate = topNode as ListNode;
-      if (sameListType(candidate, lineInfo)) {
-        listNode = candidate;
-      } else {
-        // close old list
-        while (stack.length && stack[stack.length - 1].type === "list") {
-          closeBlock(stack, null);
-        }
-      }
-    }
+    const indentLevel = trimmedLine.match(/^ */)?.[0].length || 0;
+    let listNode: ListNode;
 
-    if (!listNode) {
-      const newList: ListNode = {
+    if (topNode.type === "list" && sameListType(topNode as ListNode, lineInfo)) {
+      listNode = topNode as ListNode;
+      if (isDebugMode()) {
+        logDebug(`Continuing existing list: ordered=${listNode.ordered}, bullet=${listNode.bulletChar}, delimiter=${listNode.delimiter}`);
+      }
+    } else if (topNode.type === "list_item" && indentLevel >= 2) {
+      listNode = {
         type: "list",
         ordered: lineInfo.ordered,
         start: lineInfo.ordered ? lineInfo.start : null,
@@ -245,14 +278,34 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
         delimiter: lineInfo.delimiter,
         children: [],
       };
-      addChild(stack[stack.length - 1], newList);
-      stack.push(newList);
-      listNode = newList;
+      addChild(topNode, listNode);
+      stack.push(listNode);
+      if (isDebugMode()) {
+        logDebug(`Nested list created: ordered=${lineInfo.ordered}, bullet=${lineInfo.bulletChar}, delimiter=${lineInfo.delimiter}`);
+      }
+    } else {
+      while (stack.length > 1 && stack[stack.length - 1].type === "list") {
+        closeBlock(stack, null);
+      }
+      listNode = {
+        type: "list",
+        ordered: lineInfo.ordered,
+        start: lineInfo.ordered ? lineInfo.start : null,
+        tight: true,
+        bulletChar: lineInfo.bulletChar,
+        delimiter: lineInfo.delimiter,
+        children: [],
+      };
+      addChild(stack[stack.length - 1], listNode);
+      stack.push(listNode);
+      if (isDebugMode()) {
+        logDebug(`Creating new list: ordered=${lineInfo.ordered}, bullet=${lineInfo.bulletChar}, delimiter=${lineInfo.delimiter}`);
+      }
     }
 
-    // new list item
+    // Create list item
     const li: ListItemNode = { type: "list_item", children: [] };
-    addChild(listNode, li);
+    addChild(listNode, li); // Now listNode is guaranteed to be defined
     stack.push(li);
 
     const leftover = lineInfo.content;
@@ -287,6 +340,9 @@ export function tryOpenNewContainers(stack: MarkdownNode[], line: string, offset
     closeParagraphIfOpen(stack);
     const block: HtmlBlockNode = { type: "html_block", value: maybeHtmlBlock.content };
     addChild(stack[stack.length - 1], block);
+    while (stack.length > 1) {
+      closeBlock(stack, null);
+    }
     return true;
   }
 
@@ -307,21 +363,36 @@ function sameListType(list: ListNode, info: ReturnType<typeof parseListLine>) {
 
 export function handleBlankLine(stack: MarkdownNode[], refMap: Map<string, RefDefinition> | null) {
   const top = stack[stack.length - 1];
+  if (isDebugMode()) {
+    logDebug(`Handling blank line with top node type: ${top.type}`);
+  }
+
   if (top.type === "paragraph") {
+    if (isDebugMode()) {
+      logDebug(`Closing paragraph on blank line`);
+    }
     closeBlock(stack, refMap);
   } else if (top.type === "code_block") {
+    if (isDebugMode()) {
+      logDebug(`Adding empty line to code block`);
+    }
     appendContentToCode(top, "");
   } else if (top.type === "list_item") {
-    // an empty line in a list item => ensure next text is a new paragraph
-    // but do not close the item
     const item = top as ListItemNode;
     const lastChild = item.children[item.children.length - 1];
     if (!lastChild || lastChild.type !== "paragraph") {
-      // sets the list to not tight
       const parentList = stack.find(s => s.type === "list") as ListNode;
-      if (parentList) parentList.tight = false;
+      if (parentList) {
+        if (isDebugMode()) {
+          logDebug(`Marking list as loose at stack [${stack.map(n => n.type).join(", ")}]`);
+        }
+        parentList.tight = false;
+      }
     }
   } else if (top.type === "list") {
+    if (isDebugMode()) {
+      logDebug(`Marking list as loose directly at stack [${stack.map(n => n.type).join(", ")}]`);
+    }
     top.tight = false;
   }
 }
@@ -329,8 +400,17 @@ export function handleBlankLine(stack: MarkdownNode[], refMap: Map<string, RefDe
 export function closeBlock(stack: MarkdownNode[], refMap: Map<string, RefDefinition> | null) {
   const block = stack.pop();
   if (!block) return;
+  
+  if (isDebugMode()) {
+    logDebug(`Closing block of type: ${block.type}`);
+  }
+
   if (block.type === "paragraph" && refMap) {
     const text = getParagraphContent(block).trim();
+    if (isDebugMode()) {
+      logDebug(`Checking paragraph for reference definitions: "${text}"`);
+    }
+    
     const lines = text.split("\n");
     const leftover: string[] = [];
     for (const line of lines) {
@@ -338,6 +418,9 @@ export function closeBlock(stack: MarkdownNode[], refMap: Map<string, RefDefinit
       if (def) {
         const normLabel = normalizeRefLabel(def.label);
         if (!refMap.has(normLabel)) {
+          if (isDebugMode()) {
+            logDebug(`Found reference definition: [${def.label}]: ${def.url}`);
+          }
           refMap.set(normLabel, { label: normLabel, url: def.url, title: def.title });
         }
       } else {

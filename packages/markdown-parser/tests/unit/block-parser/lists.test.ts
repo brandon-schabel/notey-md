@@ -1,171 +1,267 @@
-import type { ListNode, ListItemNode, DocumentNode, MarkdownNode } from "@/ast";
-import { test, describe, expect } from "bun:test";
-import { blockPhase, canContainLine, tryOpenNewContainers } from "@/block-parser";
+import type { ListNode, ListItemNode, DocumentNode, ParagraphNode, CodeBlockNode, BlockquoteNode, MarkdownNode } from "@/ast";
+import { test, describe, expect, beforeEach, beforeAll, afterEach } from "bun:test";
+import { blockPhase, canContainLine, tryOpenNewContainers, handleBlankLine } from "@/block-parser";
 import { createEmptyDocumentNode, createListNode, createListItemNode } from "./test-helpers";
+import { setDebugMode, getDebugLogs } from "@/debug";
 
+const normalizeWhitespace = (str: string) => str.replace(/\s+/g, " ").trim();
 
-describe("blockPhase - Lists", () => {
-    test("should parse an unordered list", () => {
-        const doc = blockPhase("- Item 1\n- Item 2");
-        expect(doc.children.length).toBe(1);
-        const list = doc.children[0] as ListNode;
+describe("blockPhase - List Parsing Issues", () => {
+    let doc: DocumentNode;
+
+    beforeAll(() => {
+        setDebugMode(true);
+    });
+
+    beforeEach(() => {
+        doc = createEmptyDocumentNode();
+    });
+
+    afterEach(() => {
+        const logs = getDebugLogs();
+        if (logs.length > 0) {
+            console.log("Debug Logs for this test:", logs.join("\n"));
+        }
+    });
+
+    test("handles list item with multiple paragraphs (example 256)", () => {
+        const input = "- one\n\n  two";
+        const result = blockPhase(input);
+        const list = result.children[0] as ListNode;
         expect(list.type).toBe("list");
         expect(list.ordered).toBe(false);
-        expect(list.children.length).toBe(2);
-        expect(list.children[0].type).toBe("list_item");
-    });
-
-    test("should parse an ordered list", () => {
-        const doc = blockPhase("1. First\n2. Second");
-        expect(doc.children.length).toBe(1);
-        const list = doc.children[0] as ListNode;
-        expect(list.type).toBe("list");
-        expect(list.ordered).toBe(true);
-        expect(list.children.length).toBe(2);
-    });
-
-    test("List item with two paragraphs separated by blank line", () => {
-        const input = `- First paragraph in list item
-      
-        Second paragraph in same item`
-        const doc = blockPhase(input);
-        // doc should be => <ul><li>  <p>First paragraph...</p><p>Second paragraph...</p>  </li></ul>
-        expect(doc.children.length).toBe(1); // only one <ul>
-        const list = doc.children[0] as ListNode;
-        expect(list.type).toBe("list");
-        expect(list.children.length).toBe(1); // one <li>
-        const li = list.children[0];
-        expect(li.children.length).toBe(2);   // 2 paragraphs
-        expect(li.children[0].type).toBe("paragraph");
-        expect(li.children[1].type).toBe("paragraph");
-    });
-
-    test("Nested list items with blank lines in sub-list", () => {
-        const input = `- Outer
-          - Inner line one
-      
-            Inner line two
-        `;
-        // Should yield <ul><li>Outer<ul><li> <p>Inner line one</p><p>Inner line two</p> </li></ul></li></ul>
-        const doc = blockPhase(input);
-        expect(doc.children.length).toBe(1);
-        const list = doc.children[0] as ListNode;
         expect(list.children.length).toBe(1);
-        const li = list.children[0];
+        const li = list.children[0] as ListItemNode;
         expect(li.children.length).toBe(2);
         expect(li.children[0].type).toBe("paragraph");
-        expect(li.children[1].type).toBe("list");
-        const innerList = li.children[1] as ListNode;
-        expect(innerList.children.length).toBe(1);
-        const innerLi = innerList.children[0];
-        expect(innerLi.children.length).toBe(2);
-        expect(innerLi.children[0].type).toBe("paragraph");
+        expect(normalizeWhitespace((li.children[0] as ParagraphNode)._raw || "")).toBe("one");
+        expect(li.children[1].type).toBe("paragraph");
+        expect(normalizeWhitespace((li.children[1] as ParagraphNode)._raw || "")).toBe("two");
+    });
+
+    test("separates list from following paragraph (example 255)", () => {
+        const input = "- one\n\n two";
+        const result = blockPhase(input);
+        expect(result.children.length).toBe(2);
+        const list = result.children[0] as ListNode;
+        expect(list.type).toBe("list");
+        expect(list.children.length).toBe(1);
+        expect((list.children[0] as ListItemNode).children[0].type).toBe("paragraph");
+        const para = result.children[1] as ParagraphNode;
+        expect(para.type).toBe("paragraph");
+        expect(normalizeWhitespace(para._raw || "")).toBe("two");
+    });
+
+    test("parses nested list with blockquote (example 259)", () => {
+        const input = "   > > 1.  one\n>>\n>>     two";
+        const result = blockPhase(input);
+        expect(result.children.length).toBe(1);
+        const bq1 = result.children[0] as BlockquoteNode;
+        expect(bq1.type).toBe("blockquote");
+        const bq2 = bq1.children[0] as BlockquoteNode;
+        expect(bq2.type).toBe("blockquote");
+        const list = bq2.children[0] as ListNode;
+        expect(list.ordered).toBe(true);
+        const li = list.children[0] as ListItemNode;
+        expect(li.children.length).toBe(2);
+        expect(li.children[0].type).toBe("paragraph");
+        expect(normalizeWhitespace((li.children[0] as ParagraphNode)._raw || "")).toBe("one");
+        expect(li.children[1].type).toBe("paragraph");
+        expect(normalizeWhitespace((li.children[1] as ParagraphNode)._raw || "")).toBe("two");
+    });
+
+    test("handles indented code block in list item (example 270)", () => {
+        const input = "- foo\n\n      bar";
+        const result = blockPhase(input);
+        const list = result.children[0] as ListNode;
+        const li = list.children[0] as ListItemNode;
+        expect(li.children.length).toBe(2);
+        expect(li.children[0].type).toBe("paragraph");
+        expect(normalizeWhitespace((li.children[0] as ParagraphNode)._raw || "")).toBe("foo");
+        expect(li.children[1].type).toBe("code_block");
+        expect((li.children[1] as CodeBlockNode).value).toBe("bar");
+    });
+
+    test("parses mixed list markers correctly (example 301)", () => {
+        const input = "- foo\n- bar\n+ baz";
+        const result = blockPhase(input);
+        expect(result.children.length).toBe(2);
+        const list1 = result.children[0] as ListNode;
+        expect(list1.bulletChar).toBe("-");
+        expect(list1.children.length).toBe(2);
+        const list2 = result.children[1] as ListNode;
+        expect(list2.bulletChar).toBe("+");
+        expect(list2.children.length).toBe(1);
+    });
+
+    test("handles interrupted list with HTML comment (example 308)", () => {
+        const input = "- foo\n- bar\n\n<!-- -->\n\n- baz\n- bim";
+        const result = blockPhase(input);
+        expect(result.children.length).toBe(3);
+        expect(result.children[0].type).toBe("list");
+        expect((result.children[0] as ListNode).children.length).toBe(2);
+        expect(result.children[1].type).toBe("html_block");
+        expect(result.children[2].type).toBe("list");
+        expect((result.children[2] as ListNode).children.length).toBe(2);
+    });
+
+    test("parses nested lists with proper spacing (example 294)", () => {
+        const input = "- foo\n  - bar\n    - baz\n      - boo";
+        const result = blockPhase(input);
+        const outerList = result.children[0] as ListNode;
+        expect(outerList.children.length).toBe(1);
+        const li1 = outerList.children[0] as ListItemNode;
+        expect(li1.children.length).toBe(2);
+        expect(li1.children[0].type).toBe("paragraph");
+        const innerList1 = li1.children[1] as ListNode;
+        expect(innerList1.children.length).toBe(1);
+        const li2 = innerList1.children[0] as ListItemNode;
+        expect(li2.children.length).toBe(2);
+        const innerList2 = li2.children[1] as ListNode;
+        expect(innerList2.children.length).toBe(1);
+        const li3 = innerList2.children[0] as ListItemNode;
+        expect(li3.children.length).toBe(2);
+        const innerList3 = li3.children[1] as ListNode;
+        expect(innerList3.children.length).toBe(1);
+    });
+
+    // Additional tests for isolating issues
+    test("separates list from unindented content (example 255 variant)", () => {
+        const input = "- one\n\n two\nthree";
+        const result = blockPhase(input);
+        expect(result.children.length).toBe(2);
+        const list = result.children[0] as ListNode;
+        expect(list.children.length).toBe(1);
+        const para = result.children[1] as ParagraphNode;
+        expect(para.type).toBe("paragraph");
+        expect(normalizeWhitespace(para._raw || "")).toBe("two three");
+    });
+
+    test("handles loose list with blank lines (example 306)", () => {
+        const input = "- foo\n\n- bar\n\n\n- baz";
+        const result = blockPhase(input);
+        const list = result.children[0] as ListNode;
+        expect(list.type).toBe("list");
+        expect(list.tight).toBe(false);
+        expect(list.children.length).toBe(3);
+        expect((list.children[0] as ListItemNode).children[0].type).toBe("paragraph");
+        expect((list.children[1] as ListItemNode).children[0].type).toBe("paragraph");
+        expect((list.children[2] as ListItemNode).children[0].type).toBe("paragraph");
+    });
+
+    test("parses nested lists with mixed content (example 307)", () => {
+        const input = "- foo\n  - bar\n    - baz\n\n\n      bim";
+        const result = blockPhase(input);
+        const outerList = result.children[0] as ListNode;
+        expect(outerList.children.length).toBe(1);
+        const li1 = outerList.children[0] as ListItemNode;
+        expect(li1.children.length).toBe(2);
+        const innerList1 = li1.children[1] as ListNode;
+        expect(innerList1.children.length).toBe(1);
+        const li2 = innerList1.children[0] as ListItemNode;
+        expect(li2.children.length).toBe(2);
+        const innerList2 = li2.children[1] as ListNode;
+        expect(innerList2.children.length).toBe(1);
+        const li3 = innerList2.children[0] as ListItemNode;
+        expect(li3.children.length).toBe(2);
+        expect(li3.children[0].type).toBe("paragraph");
+        expect(li3.children[1].type).toBe("paragraph");
+    });
+
+    test("handles list with code block and blockquote (example 263)", () => {
+        const input = "1.  foo\n\n    ```\n    bar\n    ```\n\n    baz\n\n    > bam";
+        const result = blockPhase(input);
+        const list = result.children[0] as ListNode;
+        expect(list.ordered).toBe(true);
+        const li = list.children[0] as ListItemNode;
+        expect(li.children.length).toBe(4);
+        expect(li.children[0].type).toBe("paragraph");
+        expect(li.children[1].type).toBe("code_block");
+        expect(li.children[2].type).toBe("paragraph");
+        expect(li.children[3].type).toBe("blockquote");
     });
 });
 
-describe("canContainLine - Lists", () => {
-    const listNode: ListNode = {
-        type: "list",
-        ordered: false,
-        start: null,
-        tight: true,
-        children: []
-    };
-    const listItemNode: ListItemNode = {
-        type: "list_item",
-        children: []
-    };
+describe("canContainLine - Edge Cases", () => {
+    const listItem: ListItemNode = { type: "list_item", children: [] };
 
-    test("should return true if container is a 'list' or 'list_item', ignoring line content in top-level check", () => {
-        expect(canContainLine(listNode, "Some text", 0)).toBe(true);
-        expect(canContainLine(listNode, "", 0)).toBe(true);
-        expect(canContainLine(listItemNode, "- Another item", 0)).toBe(false);
-        expect(canContainLine(listItemNode, "", 0)).toBe(true);
+    test("rejects new list marker within list item (example 255)", () => {
+        expect(canContainLine(listItem, "- one", 0)).toBe(false);
+        expect(canContainLine(listItem, "1. one", 0)).toBe(false);
+        expect(canContainLine(listItem, "  two", 0)).toBe(true);
     });
 
-    test("should return false for list_item if line starts with a list marker", () => {
-        expect(canContainLine(listItemNode, "- New item", 0)).toBe(false);
-        expect(canContainLine(listItemNode, "1. Ordered item", 0)).toBe(false);
+    test("allows indented content in list item (example 270)", () => {
+        expect(canContainLine(listItem, "    code", 0)).toBe(true);
+        expect(canContainLine(listItem, "  para", 0)).toBe(true);
     });
 });
 
-describe("tryOpenNewContainers - Lists", () => {
-    test("detects list item - bullet and returns true", () => {
+describe("tryOpenNewContainers - List Transitions", () => {
+    test("switches list type when bullet changes (example 301)", () => {
         const doc = createEmptyDocumentNode();
-        const stack: MarkdownNode[] = [doc];
-        const line = "- List item text";
-        const offset = 0;
-        const result = tryOpenNewContainers(stack, line, offset);
-        expect(result).toBe(true);
-        expect(stack.length).toBe(4);
-        const listNode = doc.children[0] as ListNode;
-        const listItem = listNode.children[0] as ListItemNode;
-        expect(listNode.type).toBe("list");
-        expect(listNode.ordered).toBe(false);
-        expect(listItem.type).toBe("list_item");
-        const paragraph = listItem.children[0] as any;
-        expect(paragraph.type).toBe("paragraph");
-    });
-
-    test("detects list item - plus bullet", () => {
-        const doc = createEmptyDocumentNode();
-        const stack: MarkdownNode[] = [doc];
-        const line = "+ Another bullet item";
-        const offset = 0;
-        const result = tryOpenNewContainers(stack, line, offset);
-        expect(result).toBe(true);
-        expect(stack.length).toBe(4);
-        const listNode = doc.children[0] as ListNode;
-        expect(listNode.ordered).toBe(false);
-        const listItem = listNode.children[0] as ListItemNode;
-        expect(listItem.type).toBe("list_item");
-    });
-
-    test("detects list item - ordered and returns true", () => {
-        const doc = createEmptyDocumentNode();
-        const stack: MarkdownNode[] = [doc];
-        const line = "2. Another item";
-        const offset = 0;
-        const result = tryOpenNewContainers(stack, line, offset);
-        expect(result).toBe(true);
-        expect(stack.length).toBe(4);
-        const listNode = doc.children[0] as ListNode;
-        expect(listNode.ordered).toBe(true);
-        expect(listNode.start).toBe(2);
-    });
-
-    test("detects another bullet list item following a bullet list, but with same bullet", () => {
-        const doc = createEmptyDocumentNode();
-        const list = createListNode(false, 1);
-        doc.children.push(list);
+        const list = createListNode(false, null, "-");
         const li = createListItemNode();
         list.children.push(li);
+        doc.children.push(list);
         const stack: MarkdownNode[] = [doc, list, li];
-        const line = "- Next bullet item";
-        const offset = 0;
-        const result = tryOpenNewContainers(stack, line, offset);
+        const result = tryOpenNewContainers(stack, "+ baz", 0);
         expect(result).toBe(true);
-        // We expect it to close the current list item & open a new one in the same list
-        expect(stack.length).toBe(4);
-        expect(list.children.length).toBe(2);
+        expect(doc.children.length).toBe(2);
+        expect((doc.children[1] as ListNode).bulletChar).toBe("+");
     });
 
-    test("creates a new list if existing list is of a different type", () => {
+    test("handles ordered list with different delimiter (example 302)", () => {
         const doc = createEmptyDocumentNode();
-        const unorderedList = createListNode(false, 1);
-        doc.children.push(unorderedList);
+        const list = createListNode(true, 1, undefined, ".");
         const li = createListItemNode();
-        unorderedList.children.push(li);
-        const stack: MarkdownNode[] = [doc, unorderedList, li];
-        const line = "1. Start ordered list now";
-        const offset = 0;
-        const result = tryOpenNewContainers(stack, line, offset);
+        list.children.push(li);
+        doc.children.push(list);
+        const stack: MarkdownNode[] = [doc, list, li];
+        const result = tryOpenNewContainers(stack, "3) baz", 0);
         expect(result).toBe(true);
-        // The old list is closed, new list is created
         expect(doc.children.length).toBe(2);
-        expect(doc.children[0].type).toBe("list");
-        expect(doc.children[1].type).toBe("list");
-        const newList = doc.children[1] as ListNode;
-        expect(newList.ordered).toBe(true);
+        expect((doc.children[1] as ListNode).delimiter).toBe(")");
     });
-}); 
+
+    test("creates nested list with correct indentation (example 294)", () => {
+        const doc = createEmptyDocumentNode();
+        const outerList = createListNode(false, null, "-");
+        const li1 = createListItemNode();
+        outerList.children.push(li1);
+        doc.children.push(outerList);
+        const stack: MarkdownNode[] = [doc, outerList, li1];
+        const result = tryOpenNewContainers(stack, "  - bar", 0);
+        expect(result).toBe(true);
+        expect(li1.children.length).toBe(1);
+        const innerList = li1.children[0] as ListNode;
+        expect(innerList.type).toBe("list");
+        expect(innerList.children.length).toBe(1);
+    });
+});
+
+describe("handleBlankLine - List Tightness", () => {
+    test("marks list as loose with blank line in item (example 306)", () => {
+        const doc = createEmptyDocumentNode();
+        const list = createListNode(false, null);
+        const li = createListItemNode();
+        list.children.push(li);
+        doc.children.push(list);
+        const stack: MarkdownNode[] = [doc, list, li];
+        handleBlankLine(stack, null);
+        expect(list.tight).toBe(false);
+    });
+
+    test("does not affect tightness if paragraph is open (example 256)", () => {
+        const doc = createEmptyDocumentNode();
+        const list = createListNode(false, null);
+        const li = createListItemNode();
+        const para = { type: "paragraph" as const, children: [] as MarkdownNode[] };
+        li.children.push(para);
+        list.children.push(li);
+        doc.children.push(list);
+        const stack: MarkdownNode[] = [doc, list, li, para];
+        handleBlankLine(stack, null);
+        expect(list.tight).toBe(true);
+    });
+});

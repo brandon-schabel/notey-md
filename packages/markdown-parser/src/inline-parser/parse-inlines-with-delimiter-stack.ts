@@ -169,7 +169,7 @@ function parseLinksAndImages(
       const bracketData = nodeList.splice(openerPosition, bracketQuantity)
       i = openerPosition - 1
       if (i < -1) i = -1
-      if (!labelContents.length) {}
+      if (!labelContents.length) { }
       const potentialNext = nodeList[openerPosition]
       if (potentialNext && textNodeCheck(potentialNext, "(")) {
         nodeList.splice(openerPosition, 1)
@@ -412,15 +412,7 @@ export function processEmphasis(
     for (let openerPos = closerPos - 1; openerPos >= 0; openerPos--) {
       if (usedIndices.has(openerPos)) continue
       const opener = delims[openerPos]
-      if (!opener.canOpen) continue
-      if (opener.char !== closer.char) continue
-
-      let matchedQuantity = Math.min(opener.length, closer.length)
-      if (matchedQuantity > 3) {
-        matchedQuantity = 3
-      }
-      const isStrong = matchedQuantity >= 2
-      const leftover = isStrong ? matchedQuantity - 2 : matchedQuantity - 1
+      if (!opener.canOpen || opener.char !== closer.char) continue
 
       usedIndices.add(openerPos)
       usedIndices.add(closerPos)
@@ -431,63 +423,61 @@ export function processEmphasis(
       const openerNode = nodes[openerIndex] as TextNode
       const closerNode = nodes[closerIndex] as TextNode
 
-      if (openerNode.value.length < matchedQuantity) openerNode.value = ""
-      else openerNode.value = openerNode.value.slice(
-        0,
-        openerNode.value.length - matchedQuantity
-      )
+      let matchedQuantity = Math.min(opener.length, closer.length)
+      if (matchedQuantity > 3) matchedQuantity = 3
+      const isStrong = matchedQuantity >= 2
+      const leftover = isStrong ? matchedQuantity - 2 : matchedQuantity - 1
 
-      if (closerNode.value.length < matchedQuantity) closerNode.value = ""
-      else closerNode.value = closerNode.value.slice(matchedQuantity)
+      const openerRemainder = matchedQuantity === 3 && opener.length === 3 
+        ? "*" 
+        : openerNode.value.slice(0, -matchedQuantity)
+      const closerRemainder = matchedQuantity === 3 && closer.length === 3 
+        ? "*" 
+        : closerNode.value.slice(matchedQuantity)
 
-      let startIndex = Math.min(openerIndex, closerIndex) + 1
-      let endIndex = Math.max(openerIndex, closerIndex) - 1
-      if (endIndex < startIndex) break
-      if (startIndex < 0) startIndex = 0
-      if (endIndex >= nodes.length) endIndex = nodes.length - 1
-      const middleContent = nodes.slice(startIndex, endIndex + 1)
+      const startIndex = openerIndex + 1
+      const endIndex = closerIndex - 1
+      const middleContent = endIndex >= startIndex 
+        ? nodes.slice(startIndex, endIndex + 1)
+        : []
 
-      let emphasisNode: MarkdownNode = {
-        type: isStrong ? "strong" : "emphasis",
-        children: middleContent,
-      }
+      // Only create emphasis if there's valid content between delimiters
+      if (middleContent.length) {
+        let emphasisNode: MarkdownNode = {
+          type: isStrong ? "strong" : "emphasis",
+          children: middleContent,
+        }
 
-      if (leftover === 1) {
-        emphasisNode = {
-          type: "strong",
-          children: [
-            {
+        if (leftover === 1) {
+          emphasisNode = {
+            type: "strong",
+            children: [{
               type: "emphasis",
               children: middleContent,
-            },
-          ],
+            }],
+          }
         }
-      }
 
-      nodes.splice(startIndex, middleContent.length, emphasisNode)
+        openerNode.value = openerRemainder
+        closerNode.value = closerRemainder
 
-      if (!openerNode.value) {
-        nodes.splice(openerIndex, 1)
-        adjustDelimiterIndexes(delims, openerIndex)
-        if (closerIndex > openerIndex) {
-          closerIndex--
+        nodes.splice(startIndex, endIndex - startIndex + 1, emphasisNode)
+
+        for (let z = 0; z < delims.length; z++) {
+          if (usedIndices.has(z)) continue
+          const d = delims[z]
+          if (d.idx > closerIndex) {
+            d.idx -= (closerIndex - openerIndex) - 1
+          }
         }
+      } else if (startIndex === closerIndex && 
+                 openerNode.value === opener.char.repeat(opener.length) && 
+                 closerNode.value === closer.char.repeat(closer.length)) {
+        // Only handle empty emphasis for standalone adjacent delimiters
+        openerNode.value = ""
+        closerNode.value = ""
       }
 
-      if (!closerNode.value) {
-        nodes.splice(closerIndex, 1)
-        adjustDelimiterIndexes(delims, closerIndex)
-      }
-
-      for (let z = 0; z < delims.length; z++) {
-        if (usedIndices.has(z)) continue
-        const d = delims[z]
-        if (d.idx > startIndex + middleContent.length - 1) {
-          d.idx -= middleContent.length - 1
-        } else if (d.idx >= startIndex) {
-          usedIndices.add(z)
-        }
-      }
       break
     }
   }
